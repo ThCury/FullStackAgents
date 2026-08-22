@@ -1,0 +1,98 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #0f1115;
+  color: #e6e6e6;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  margin: 0 0 0.25rem;
+}
+
+header p {
+  margin: 0;
+  color: #9aa0a6;
+}
+
+.demand-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.demand-form textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #2a2d34;
+  background: #171a21;
+  color: #e6e6e6;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.demand-form button {
+  align-self: flex-end;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  border: none;
+  background: #4f8cff;
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.demand-form button:disabled {
+  background: #2a2d34;
+  cursor: not-allowed;
+}
+
+.orchestration-log h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.orchestration-log ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.orchestration-log li {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #171a21;
+  border: 1px solid #2a2d34;
+}
+
+.orchestration-log .meta {
+  display: block;
+  font-size: 0.75rem;
+  color: #9aa0a6;
+  margin-bottom: 0.25rem;
+}
+
+.orchestration-log .empty {
+  color: #9aa0a6;
+  font-style: italic;
+  background: transparent;
+  border-style: dashed;
+}
