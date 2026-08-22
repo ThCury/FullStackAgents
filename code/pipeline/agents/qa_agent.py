@@ -5,7 +5,7 @@ entrega ao Dev com feedback específico e acionável.
 """
 from __future__ import annotations
 
-from ..config import QA_MODEL
+from ..config import QA_MAX_TOOL_ITERATIONS, QA_MODEL
 from ..tools import file_tools, test_tools
 from ..tools.schemas import QA_TOOLS
 from .base_agent import BaseAgent
@@ -83,11 +83,11 @@ class QAAgent(BaseAgent):
         decision = state["decision_log"][-1]
 
         user = self._build_prompt(story, decision)
-        raw, _transcript = self.call_with_tools(
+        raw, _transcript, finished_cleanly = self.call_with_tools(
             user,
             QA_TOOLS,
             self._execute_tool,
-            max_iterations=15,
+            max_iterations=QA_MAX_TOOL_ITERATIONS,
             validate_final=looks_like_json,
             invalid_final_message=(
                 "Sua última resposta não continha o JSON de veredito esperado. "
@@ -95,9 +95,29 @@ class QAAgent(BaseAgent):
                 "instruções, sem texto antes ou depois e sem chamar ferramentas."
             ),
         )
-        result = extract_json(raw)
+        if finished_cleanly:
+            result = extract_json(raw)
+            result.setdefault("test_cases", [])
+        else:
+            # Esgotou as chamadas de ferramenta sem produzir o veredito. Em vez
+            # de reprovar (o que mandaria de volta pro Dev e arriscaria a
+            # MESMA recursão Dev<->QA que já custou o orçamento de iterações),
+            # aprova automaticamente: nenhuma correção é aplicada, a entrega do
+            # Dev é lançada como está. Fica marcado para revisão manual.
+            result = {
+                "approved": True,
+                "test_cases": [],
+                "evidence": (
+                    "QA atingiu o limite de chamadas de ferramenta "
+                    "(QA_MAX_TOOL_ITERATIONS) antes de concluir a validação."
+                ),
+                "feedback": (
+                    "Aprovado automaticamente por limite de iterações - sem "
+                    "correção aplicada. Recomenda-se revisão manual."
+                ),
+                "hit_max_iterations": True,
+            }
         result["story_id"] = story["id"]
-        result.setdefault("test_cases", [])
 
         self.append_jsonl_artifact("qa_report.jsonl", result)
 
@@ -105,6 +125,7 @@ class QAAgent(BaseAgent):
         updates = {
             "qa_report": [result],
             "communication_log": [self.message(next_recipient, result["feedback"])],
+            "token_usage": [self.usage_entry(story_id=story["id"])],
         }
         if not result["approved"]:
             updates["revision_count"] = state["revision_count"] + 1

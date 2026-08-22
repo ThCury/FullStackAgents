@@ -3,7 +3,7 @@ priorizadas, com critérios de aceite claros e verificáveis pelo QA.
 """
 from __future__ import annotations
 
-from ..config import PO_MODEL
+from ..config import PO_MAX_TOOL_ITERATIONS, PO_MODEL
 from ..tools import file_tools
 from ..tools.schemas import READ_ONLY_TOOLS
 from .base_agent import BaseAgent
@@ -66,10 +66,11 @@ class POAgent(BaseAgent):
             f"Brief técnico enriquecido pelo Analista:\n\n{state['enriched_brief']}\n\n"
             "Gere o backlog de user stories em JSON conforme instruído."
         )
-        raw, _transcript = self.call_with_tools(
+        raw, _transcript, finished_cleanly = self.call_with_tools(
             user,
             READ_ONLY_TOOLS,
             self._execute_tool,
+            max_iterations=PO_MAX_TOOL_ITERATIONS,
             validate_final=looks_like_json,
             invalid_final_message=(
                 "Sua última resposta não continha o array JSON de backlog "
@@ -78,7 +79,11 @@ class POAgent(BaseAgent):
                 "ferramentas."
             ),
         )
-        backlog = extract_json(raw)
+        # Sem backlog não há story pra passar ao Dev - ao esgotar as
+        # iterações sem um JSON válido, segue com backlog vazio em vez de
+        # deixar o parsing explodir e matar o pipeline (o roteamento do grafo
+        # já trata "sem stories" como fim de rodada, ver _route_after_po).
+        backlog = extract_json(raw) if finished_cleanly else []
 
         self.write_json_artifact("backlog.json", backlog)
 
@@ -92,4 +97,5 @@ class POAgent(BaseAgent):
             "revision_count": 0,
             "status": "in_dev" if first_id else "no_stories",
             "communication_log": [self.message("dev", summary)],
+            "token_usage": [self.usage_entry()],
         }

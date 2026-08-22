@@ -56,6 +56,7 @@ class PipelineState(TypedDict):
     decision_log: Annotated[list[DevDecision], operator.add]
     qa_report: Annotated[list[QAResult], operator.add]
     communication_log: Annotated[list[Message], operator.add]
+    token_usage: Annotated[list[dict], operator.add]
 
     revision_count: int
     max_revisions: int
@@ -75,6 +76,7 @@ def initial_state(brief: str, max_revisions: int | None = None) -> PipelineState
         decision_log=[],
         qa_report=[],
         communication_log=[],
+        token_usage=[],
         revision_count=0,
         max_revisions=max_revisions if max_revisions is not None else config.MAX_REVISIONS,
         status="started",

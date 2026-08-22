@@ -62,6 +62,7 @@ def build_history_context(max_runs: int = 10) -> str:
 
 
 def write_summary(run_dir: Path, index: int, timestamp: str, brief: str, final_state: dict) -> None:
+    token_usage = final_state.get("token_usage", [])
     summary = {
         "index": index,
         "timestamp": timestamp,
@@ -69,6 +70,8 @@ def write_summary(run_dir: Path, index: int, timestamp: str, brief: str, final_s
         "status": final_state.get("status"),
         "story_count": len(final_state.get("backlog", [])),
         "approved_count": sum(1 for r in final_state.get("qa_report", []) if r.get("approved")),
+        "total_input_tokens": sum(u.get("input_tokens", 0) for u in token_usage),
+        "total_output_tokens": sum(u.get("output_tokens", 0) for u in token_usage),
     }
     (run_dir / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"

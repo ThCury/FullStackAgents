@@ -7,11 +7,11 @@ ao QA. Toda decisão técnica relevante é registrada com justificativa.
 """
 from __future__ import annotations
 
-from ..config import DEV_MODEL
+from ..config import DEV_MAX_TOOL_ITERATIONS, DEV_MODEL
 from ..tools import file_tools, test_tools
 from ..tools.schemas import DEV_TOOLS
 from .base_agent import BaseAgent
-from .utils import extract_json, looks_like_json
+from .utils import extract_json, looks_like_json, written_files
 
 SYSTEM_PROMPT = """\
 Você é o Desenvolvedor de um squad autônomo de agentes de software. Você
@@ -95,11 +95,11 @@ class DevAgent(BaseAgent):
                 feedback = last_qa["feedback"]
 
         user = self._build_prompt(story, feedback)
-        raw, _transcript = self.call_with_tools(
+        raw, transcript, finished_cleanly = self.call_with_tools(
             user,
             DEV_TOOLS,
             self._execute_tool,
-            max_iterations=20,
+            max_iterations=DEV_MAX_TOOL_ITERATIONS,
             validate_final=looks_like_json,
             invalid_final_message=(
                 "Sua última resposta não continha o JSON de decisão esperado. "
@@ -107,10 +107,32 @@ class DevAgent(BaseAgent):
                 "instruções, sem texto antes ou depois e sem chamar ferramentas."
             ),
         )
-        decision = extract_json(raw)
+        if finished_cleanly:
+            decision = extract_json(raw)
+            decision.setdefault("files_changed", [])
+            decision.setdefault("tests_written", [])
+        else:
+            # Esgotou as chamadas de ferramenta (ou as tentativas de resposta
+            # válida) sem produzir o JSON de decisão. Em vez de deixar o
+            # parsing explodir e matar o pipeline inteiro, entrega como está:
+            # o que já foi escrito via write_file até aqui, sem nenhuma
+            # correção adicional. A story segue pro QA normalmente.
+            decision = {
+                "summary": (
+                    "Implementação interrompida pelo limite de iterações de "
+                    "ferramentas - entregue como está, sem revisão final."
+                ),
+                "rationale": (
+                    "O agente atingiu o limite de chamadas de ferramenta "
+                    "(DEV_MAX_TOOL_ITERATIONS) antes de concluir com uma "
+                    "resposta formal. O código já escrito até este ponto foi "
+                    "mantido sem correção adicional."
+                ),
+                "files_changed": written_files(transcript),
+                "tests_written": [],
+                "hit_max_iterations": True,
+            }
         decision["story_id"] = story["id"]
-        decision.setdefault("files_changed", [])
-        decision.setdefault("tests_written", [])
 
         self.append_jsonl_artifact("decision_log.jsonl", decision)
 
@@ -118,4 +140,5 @@ class DevAgent(BaseAgent):
             "decision_log": [decision],
             "status": "in_qa",
             "communication_log": [self.message("qa", decision["summary"] + " | Justificativa: " + decision["rationale"])],
+            "token_usage": [self.usage_entry(story_id=story["id"])],
         }

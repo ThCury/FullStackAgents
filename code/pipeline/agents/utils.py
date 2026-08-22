@@ -39,3 +39,19 @@ def looks_like_json(text: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def written_files(transcript: list[dict]) -> list[str]:
+    """Lista os arquivos de fato escritos por chamadas a `write_file` num
+    transcript de `call_with_tools`, na ordem em que ocorreram (sem
+    duplicatas). Usado como fallback quando o agente não termina com uma
+    resposta formal (ver `finished_cleanly` em `call_with_tools`), pra saber
+    o que foi entregue mesmo sem o JSON de decisão."""
+    seen: list[str] = []
+    for step in transcript:
+        if step.get("step") != "tool_call" or step.get("name") != "write_file":
+            continue
+        rel_path = step.get("input", {}).get("rel_path")
+        if rel_path and rel_path not in seen:
+            seen.append(rel_path)
+    return seen

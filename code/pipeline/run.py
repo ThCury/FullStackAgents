@@ -41,11 +41,16 @@ def run_pipeline(brief: str, max_revisions: int | None = None) -> PipelineState:
         "\n".join(json.dumps(m, ensure_ascii=False) for m in final_state["communication_log"]),
         encoding="utf-8",
     )
+    (run_dir / "token_usage.jsonl").write_text(
+        "\n".join(json.dumps(u, ensure_ascii=False) for u in final_state.get("token_usage", [])),
+        encoding="utf-8",
+    )
     history.write_summary(run_dir, index, timestamp, brief, final_state)
     return final_state
 
 
 def _print_summary(result: PipelineState) -> None:
+    token_usage = result.get("token_usage", [])
     print(json.dumps(
         {
             "status": result.get("status"),
@@ -54,6 +59,8 @@ def _print_summary(result: PipelineState) -> None:
             "qa_results": [
                 {"story_id": r["story_id"], "approved": r["approved"]} for r in result.get("qa_report", [])
             ],
+            "total_input_tokens": sum(u.get("input_tokens", 0) for u in token_usage),
+            "total_output_tokens": sum(u.get("output_tokens", 0) for u in token_usage),
         },
         ensure_ascii=False,
         indent=2,

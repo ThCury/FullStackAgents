@@ -10,6 +10,8 @@ export type DoneSummary = {
   stories: number;
   decisions: number;
   qa_results: { story_id: string; approved: boolean }[];
+  total_input_tokens: number;
+  total_output_tokens: number;
 };
 
 type StreamEvent =

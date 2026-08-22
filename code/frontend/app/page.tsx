@@ -32,7 +32,7 @@ export default function Home() {
       onDone: (summary) => {
         appendEntry({
           author: "squad",
-          content: `Execução concluída (status: ${summary.status}) - ${summary.stories} stories, ${summary.qa_results.filter((r) => r.approved).length}/${summary.qa_results.length} aprovadas pelo QA.`,
+          content: `Execução concluída (status: ${summary.status}) - ${summary.stories} stories, ${summary.qa_results.filter((r) => r.approved).length}/${summary.qa_results.length} aprovadas pelo QA. Tokens: ${summary.total_input_tokens} entrada / ${summary.total_output_tokens} saída.`,
           ts: new Date().toLocaleTimeString("pt-BR"),
         });
         setRunning(false);

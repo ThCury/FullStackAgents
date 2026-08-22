@@ -36,17 +36,34 @@ class BaseAgent:
         # Cai no diretório flat de artifacts/ quando o agente é usado fora de uma
         # execução do grafo (ex: testes manuais).
         self.run_dir = run_dir or config.ARTIFACTS_DIR
+        # Tokens da última chamada a `call`/`call_with_tools` (reiniciado a cada
+        # invocação - ver `_reset_usage`/`_accumulate_usage`). Cada `run()` de
+        # agente lê isso depois de chamar o LLM e devolve no estado do grafo.
+        self.last_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0, "calls": 0}
 
     # -- comunicação com o LLM -------------------------------------------------
 
+    def _reset_usage(self) -> None:
+        self.last_usage = {"input_tokens": 0, "output_tokens": 0, "calls": 0}
+
+    def _accumulate_usage(self, resp: Any) -> None:
+        usage = getattr(resp, "usage", None)
+        if usage is None:
+            return
+        self.last_usage["input_tokens"] += getattr(usage, "input_tokens", 0) or 0
+        self.last_usage["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+        self.last_usage["calls"] += 1
+
     def call(self, user: str, system: str | None = None, max_tokens: int = 4096) -> str:
         """Chamada simples sem tools."""
+        self._reset_usage()
         resp = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
             system=system or self.system_prompt,
             messages=[{"role": "user", "content": user}],
         )
+        self._accumulate_usage(resp)
         return "".join(b.text for b in resp.content if b.type == "text")
 
     def call_with_tools(
@@ -63,7 +80,7 @@ class BaseAgent:
             "apenas com o conteúdo solicitado, exatamente como instruído, sem "
             "chamar ferramentas."
         ),
-    ) -> tuple[str, list[dict]]:
+    ) -> tuple[str, list[dict], bool]:
         """Loop agentic: chama o modelo, executa tool calls, repete até obter
         uma resposta final em texto (sem tool_use) ou atingir max_iterations.
 
@@ -76,9 +93,16 @@ class BaseAgent:
         downstream e mataria o pipeline inteiro) pedimos explicitamente para
         tentar de novo, com orçamento limitado de tentativas.
 
-        Retorna (texto_final, transcript) onde transcript é a lista de passos
-        (texto intermediário + chamadas de ferramenta) para fins de auditoria.
+        Retorna (texto_final, transcript, finished_cleanly). `finished_cleanly`
+        é False quando o loop terminou sem uma resposta válida - por esgotar as
+        tentativas de resposta inválida OU por atingir `max_iterations` sem o
+        modelo nunca parar de chamar ferramentas. Em ambos os casos o texto
+        devolvido NÃO é confiável para parsing (JSON ou não); quem chama deve
+        tratar isso como "sem resultado formal" e decidir um fallback (ex:
+        entregar o que já foi feito via tool calls, sem exigir o JSON) em vez
+        de deixar o parsing explodir e matar o pipeline inteiro.
         """
+        self._reset_usage()
         messages: list[dict[str, Any]] = [{"role": "user", "content": user}]
         transcript: list[dict] = []
         invalid_retries = 0
@@ -92,6 +116,7 @@ class BaseAgent:
                 tools=tools,
                 messages=messages,
             )
+            self._accumulate_usage(resp)
             messages.append({"role": "assistant", "content": resp.content})
 
             texts = [b.text for b in resp.content if b.type == "text"]
@@ -104,12 +129,12 @@ class BaseAgent:
                 final_text = "\n".join(texts).strip()
                 is_valid = bool(final_text) and (validate_final is None or validate_final(final_text))
                 if is_valid:
-                    return final_text, transcript
+                    return final_text, transcript, True
 
                 invalid_retries += 1
                 transcript.append({"step": "invalid_final_retry", "attempt": invalid_retries})
                 if invalid_retries > max_invalid_retries:
-                    return final_text, transcript
+                    return final_text, transcript, False
                 messages.append({"role": "user", "content": invalid_final_message})
                 continue
 
@@ -128,12 +153,26 @@ class BaseAgent:
             messages.append({"role": "user", "content": tool_results})
 
         transcript.append({"step": "max_iterations_reached"})
-        return "[o agente atingiu o número máximo de iterações de ferramentas]", transcript
+        return "[o agente atingiu o número máximo de iterações de ferramentas]", transcript, False
 
     # -- comunicação auditável entre agentes ------------------------------------
 
     def message(self, to_agent: str, content: str) -> dict:
         return {"from_agent": self.name, "to_agent": to_agent, "content": content, "ts": time.time()}
+
+    def usage_entry(self, story_id: str | None = None) -> dict:
+        """Registro de consumo de tokens da última chamada ao LLM feita por
+        este agente (ver `last_usage`), pronto para entrar no `token_usage`
+        acumulado do estado do grafo."""
+        return {
+            "agent": self.name,
+            "model": self.model,
+            "story_id": story_id,
+            "input_tokens": self.last_usage["input_tokens"],
+            "output_tokens": self.last_usage["output_tokens"],
+            "calls": self.last_usage["calls"],
+            "ts": time.time(),
+        }
 
     # -- persistência de artefatos ------------------------------------------
 
