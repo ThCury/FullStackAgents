@@ -82,9 +82,56 @@ class QAAgent(BaseAgent):
             raise ValueError(f"Story não encontrada no backlog: {state['current_story_id']}")
         decision = state["decision_log"][-1]
 
+        if self.simple_mode:
+            output = test_tools.run_backend_tests("backend")
+            approved = "exit_code=0" in output
+            result = {
+                "story_id": story["id"],
+                "approved": approved,
+                "test_cases": [
+                    {
+                        "name": "Suite backend unittest/pytest",
+                        "result": "pass" if approved else "fail",
+                        "notes": "Executada por run_backend_tests no code/app/backend.",
+                    }
+                ],
+                "evidence": output[-3000:],
+                "feedback": "Aprovado no modo simples." if approved else "Corrigir falhas da suite backend.",
+            }
+            self.append_jsonl_artifact("qa_report.jsonl", result)
+            next_recipient = "po" if result["approved"] else "dev"
+            updates = {
+                "qa_report": [result],
+                "communication_log": [self.message(next_recipient, result["feedback"])],
+            }
+            if not result["approved"]:
+                updates["revision_count"] = state["revision_count"] + 1
+            return updates
+
         user = self._build_prompt(story, decision)
-        raw, _transcript = self.call_with_tools(user, QA_TOOLS, self._execute_tool, max_iterations=15)
-        result = extract_json(raw)
+        raw, transcript = self.call_with_tools(user, QA_TOOLS, self._execute_tool, max_iterations=15)
+        try:
+            result = extract_json(raw)
+        except ValueError:
+            test_outputs = [
+                step.get("result", "")
+                for step in transcript
+                if step.get("step") == "tool_call" and step.get("name") in {"run_backend_tests", "run_frontend_tests"}
+            ]
+            evidence = "\n".join(test_outputs)[-3000:] or "QA nao retornou JSON final e nao registrou execucao de testes."
+            approved = "exit_code=0" in evidence
+            result = {
+                "approved": approved,
+                "test_cases": [
+                    {
+                        "name": "Fallback de QA",
+                        "result": "pass" if approved else "fail",
+                        "notes": "Resultado inferido pelo pipeline a partir das ferramentas executadas.",
+                    }
+                ],
+                "evidence": evidence,
+                "feedback": "Aprovado por fallback." if approved else "QA sem JSON final; revisar testes e criterios.",
+            }
         result["story_id"] = story["id"]
         result.setdefault("test_cases", [])
 

@@ -30,3 +30,5 @@ QA_MODEL = os.environ.get("QA_MODEL", DEFAULT_MODEL)
 
 MAX_REVISIONS = int(os.environ.get("PIPELINE_MAX_REVISIONS", "2"))
 MAX_TOOL_ITERATIONS = int(os.environ.get("PIPELINE_MAX_TOOL_ITERATIONS", "20"))
+PIPELINE_SIMPLE_MODE = os.environ.get("PIPELINE_SIMPLE_MODE", "").lower() in {"1", "true", "yes", "sim"}
+ANTHROPIC_TIMEOUT = float(os.environ.get("ANTHROPIC_TIMEOUT", "90"))

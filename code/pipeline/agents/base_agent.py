@@ -13,7 +13,10 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-import anthropic
+try:
+    import anthropic
+except ImportError:  # modo simples nao precisa do SDK externo
+    anthropic = None
 
 from .. import config
 
@@ -23,13 +26,21 @@ class BaseAgent:
     model: str = config.DEFAULT_MODEL
     system_prompt: str = ""
 
-    def __init__(self, model: str | None = None, run_dir: Path | None = None):
-        if not config.ANTHROPIC_API_KEY:
+    def __init__(self, model: str | None = None, run_dir: Path | None = None, simple_mode: bool | None = None):
+        self.simple_mode = config.PIPELINE_SIMPLE_MODE if simple_mode is None else simple_mode
+        if not self.simple_mode and anthropic is None:
+            raise RuntimeError(
+                "Pacote anthropic nao instalado. Instale as dependencias ou rode com --simple."
+            )
+        if not self.simple_mode and not config.ANTHROPIC_API_KEY:
             raise RuntimeError(
                 "ANTHROPIC_API_KEY não configurada. Defina a variável de ambiente "
                 "ou crie um arquivo .env em code/pipeline (veja .env.example)."
             )
-        self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        self.client = None if self.simple_mode else anthropic.Anthropic(
+            api_key=config.ANTHROPIC_API_KEY,
+            timeout=config.ANTHROPIC_TIMEOUT,
+        )
         if model:
             self.model = model
         # Diretório de artefatos da execução atual (pipeline/artifacts/runs/NNN_...).
@@ -84,7 +95,18 @@ class BaseAgent:
                 transcript.append({"step": "assistant_text", "content": "\n".join(texts)})
 
             if not tool_uses:
-                return "\n".join(texts), transcript
+                final_text = "\n".join(texts).strip()
+                if final_text:
+                    return final_text, transcript
+                transcript.append({"step": "assistant_empty"})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Sua resposta veio vazia. Continue o trabalho se ainda faltar algo. "
+                        "Se ja concluiu, responda exatamente no formato final solicitado."
+                    ),
+                })
+                continue
 
             tool_results = []
             for tu in tool_uses:

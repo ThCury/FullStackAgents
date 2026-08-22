@@ -26,11 +26,11 @@ from .graph import build_graph
 from .state import PipelineState, initial_state
 
 
-def run_pipeline(brief: str, max_revisions: int | None = None) -> PipelineState:
+def run_pipeline(brief: str, max_revisions: int | None = None, simple_mode: bool = False) -> PipelineState:
     run_dir, index, timestamp = history.start_run()
     (run_dir / "brief.txt").write_text(brief, encoding="utf-8")
 
-    app = build_graph(run_dir=run_dir)
+    app = build_graph(run_dir=run_dir, simple_mode=simple_mode)
     state = initial_state(brief, max_revisions=max_revisions)
     state["brief_history"] = history.build_history_context()
 
@@ -77,7 +77,7 @@ def _read_multiline_brief() -> str | None:
     return "\n".join(lines)
 
 
-def _interactive_loop(max_revisions: int | None = None) -> None:
+def _interactive_loop(max_revisions: int | None = None, simple_mode: bool = False) -> None:
     print("Squad de agentes - modo interativo.")
     print(
         "A primeira mensagem constrói o sistema em code/app; as próximas são "
@@ -95,7 +95,7 @@ def _interactive_loop(max_revisions: int | None = None) -> None:
             continue
 
         print("\n--- squad trabalhando ---")
-        result = run_pipeline(brief, max_revisions=max_revisions)
+        result = run_pipeline(brief, max_revisions=max_revisions, simple_mode=simple_mode)
         _print_summary(result)
         print()
 
@@ -109,10 +109,15 @@ def main() -> None:
         help="Modo conversacional: pede um brief por vez no terminal (inicial e incrementos).",
     )
     parser.add_argument("--max-revisions", type=int, default=None, help="Máximo de retrabalhos por story antes de escalar.")
+    parser.add_argument(
+        "--simple",
+        action="store_true",
+        help="Roda o pipeline em modo deterministico simples, sem chamadas de LLM, gerando code/app.",
+    )
     args = parser.parse_args()
 
     if args.interactive:
-        _interactive_loop(max_revisions=args.max_revisions)
+        _interactive_loop(max_revisions=args.max_revisions, simple_mode=args.simple)
         return
 
     if args.brief_file:
@@ -125,7 +130,7 @@ def main() -> None:
         parser.error("Informe --brief, --brief-file ou --interactive")
         return
 
-    result = run_pipeline(brief, max_revisions=args.max_revisions)
+    result = run_pipeline(brief, max_revisions=args.max_revisions, simple_mode=args.simple)
     _print_summary(result)
 
 

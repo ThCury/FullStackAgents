@@ -7,6 +7,7 @@ ao QA. Toda decisão técnica relevante é registrada com justificativa.
 """
 from __future__ import annotations
 
+from .. import simple_project
 from ..config import DEV_MODEL
 from ..tools import file_tools, test_tools
 from ..tools.schemas import DEV_TOOLS
@@ -22,8 +23,9 @@ Regras de trabalho:
 1. Antes de escrever código, use list_dir/read_file para entender a estrutura
    já existente em code/app e seguir os padrões e convenções já estabelecidos
    (linguagem, framework, organização de pastas). Se a aplicação ainda estiver
-   vazia, tome a decisão de arquitetura inicial (ex: FastAPI para backend
-   Python, estrutura de pastas por domínio) e justifique.
+   vazia, use a arquitetura mais simples possível para a demo: backend HTTP em
+   Python puro (biblioteca padrão), frontend estático em HTML/CSS/JS e dados em
+   memória sem banco. Evite dependências externas, Docker e build de frontend.
 2. Implemente a story por completo, incluindo testes unitários para a lógica
    nova ou alterada. Os testes de backend devem rodar com pytest a partir de
    code/app/backend.
@@ -88,6 +90,26 @@ class DevAgent(BaseAgent):
         if story is None:
             raise ValueError(f"Story não encontrada no backlog: {state['current_story_id']}")
 
+        if self.simple_mode:
+            files_changed = []
+            if story["id"] == state["backlog"][0]["id"]:
+                for rel_path, content in simple_project.FILES.items():
+                    file_tools.write_file(rel_path, content)
+                    files_changed.append(rel_path)
+            decision = {
+                "story_id": story["id"],
+                "summary": f"Story {story['id']} implementada pela arquitetura simples gerada pelo pipeline.",
+                "rationale": "Usado backend Python puro, frontend estatico e dados em memoria para manter a demo reprodutivel.",
+                "files_changed": files_changed,
+                "tests_written": ["backend/test_app.py"] if files_changed else [],
+            }
+            self.append_jsonl_artifact("decision_log.jsonl", decision)
+            return {
+                "decision_log": [decision],
+                "status": "in_qa",
+                "communication_log": [self.message("qa", decision["summary"] + " | Justificativa: " + decision["rationale"])],
+            }
+
         feedback = None
         if state["qa_report"]:
             last_qa = state["qa_report"][-1]
@@ -95,8 +117,21 @@ class DevAgent(BaseAgent):
                 feedback = last_qa["feedback"]
 
         user = self._build_prompt(story, feedback)
-        raw, _transcript = self.call_with_tools(user, DEV_TOOLS, self._execute_tool, max_iterations=20)
-        decision = extract_json(raw)
+        raw, transcript = self.call_with_tools(user, DEV_TOOLS, self._execute_tool, max_iterations=20)
+        try:
+            decision = extract_json(raw)
+        except ValueError:
+            written_files = [
+                step["input"].get("rel_path", "")
+                for step in transcript
+                if step.get("step") == "tool_call" and step.get("name") == "write_file"
+            ]
+            decision = {
+                "summary": "A story foi executada via ferramentas, mas o Dev nao retornou o JSON final esperado.",
+                "rationale": "O pipeline registrou uma decisao automatica para manter a orquestracao auditavel.",
+                "files_changed": [path for path in written_files if path],
+                "tests_written": [path for path in written_files if "test" in path.lower()],
+            }
         decision["story_id"] = story["id"]
         decision.setdefault("files_changed", [])
         decision.setdefault("tests_written", [])

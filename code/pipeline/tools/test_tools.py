@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import subprocess
+import sys
+from importlib.util import find_spec
 
 from ..config import APP_ROOT
 
@@ -26,7 +28,9 @@ def run_backend_tests(rel_path: str = "backend") -> str:
     backend = APP_ROOT / rel_path
     if not backend.exists():
         return f"[erro] diretório de backend não encontrado: {rel_path}"
-    return _run(["python3", "-m", "pytest", "-v", "--tb=short"], cwd=backend)
+    if find_spec("pytest"):
+        return _run([sys.executable, "-m", "pytest", "-v", "--tb=short"], cwd=backend)
+    return _run([sys.executable, "-m", "unittest", "discover", "-v"], cwd=backend)
 
 
 def run_frontend_tests(rel_path: str = "frontend") -> str:

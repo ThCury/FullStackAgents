@@ -46,6 +46,11 @@ O brief enriquecido deve conter, em texto corrido organizado por seções:
    auditabilidade, usabilidade sem treinamento).
 6. Riscos e ambiguidades identificadas que o PO deve resolver ao priorizar.
 
+Para a Trilha B, mantenha o escopo na versão mais simplificada demonstrável:
+registro ágil, causa raiz assistida e rastreabilidade de lote. Não amplie para
+cadastros administrativos, autenticação, banco de dados ou integrações se isso
+não for essencial para a demo local.
+
 Não invente requisitos que contradigam o briefing. Não escreva user stories -
 isso é responsabilidade do PO. Responda apenas com o brief enriquecido em
 texto, sem tools calls adicionais após ter informação suficiente.
@@ -65,6 +70,18 @@ class AnalystAgent(BaseAgent):
         return f"[erro] ferramenta desconhecida: {tool_name}"
 
     def run(self, state: dict) -> dict:
+        if self.simple_mode:
+            enriched = (
+                "Versao simples da Trilha B para Rivexx: gerar app web local com backend Python puro, "
+                "frontend estatico e dados em memoria. Escopo: registro agil de nao conformidade, "
+                "causa raiz assistida e rastreabilidade de lote. Sem banco, Docker, autenticacao ou frameworks novos."
+            )
+            return {
+                "enriched_brief": enriched,
+                "status": "analyzed",
+                "communication_log": [self.message("po", enriched)],
+            }
+
         history = state.get("brief_history") or "(nenhuma execução anterior)"
         user = (
             f"Histórico de execuções anteriores:\n{history}\n\n"

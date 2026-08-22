@@ -19,10 +19,15 @@ def extract_json(text: str):
 
     for candidate in candidates:
         candidate = candidate.strip()
-        for open_char, close_char in (("[", "]"), ("{", "}")):
-            start = candidate.find(open_char)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+        starts = [(idx, open_char, close_char) for open_char, close_char in (("{", "}"), ("[", "]")) if (idx := candidate.find(open_char)) != -1]
+        for start, open_char, close_char in sorted(starts, key=lambda item: item[0]):
             end = candidate.rfind(close_char)
-            if start != -1 and end != -1 and end > start:
+            if end != -1 and end > start:
                 snippet = candidate[start : end + 1]
                 try:
                     return json.loads(snippet)

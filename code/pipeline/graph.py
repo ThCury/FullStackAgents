@@ -17,7 +17,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from langgraph.graph import END, StateGraph
+try:
+    from langgraph.graph import END, StateGraph
+except ImportError:  # modo simples roda sem LangGraph instalado
+    END = "__end__"
+    StateGraph = None
 
 from .agents import AnalystAgent, DevAgent, POAgent, QAAgent
 from .state import PipelineState
@@ -55,11 +59,52 @@ def _route_after_po(state: PipelineState) -> str:
     return "dev" if state["current_story_id"] else END
 
 
-def build_graph(run_dir: Path | None = None):
-    analyst = AnalystAgent(run_dir=run_dir)
-    po = POAgent(run_dir=run_dir)
-    dev = DevAgent(run_dir=run_dir)
-    qa = QAAgent(run_dir=run_dir)
+def _merge_state(state: dict, updates: dict) -> dict:
+    merged = dict(state)
+    for key, value in updates.items():
+        if key in {"decision_log", "qa_report", "communication_log"}:
+            merged[key] = [*merged.get(key, []), *value]
+        else:
+            merged[key] = value
+    return merged
+
+
+class _SimpleCompiledGraph:
+    """Sequenciador minimo para o modo --simple, com o mesmo fluxo do grafo."""
+
+    def __init__(self, analyst, po, dev, qa):
+        self.analyst = analyst
+        self.po = po
+        self.dev = dev
+        self.qa = qa
+
+    def invoke(self, state: PipelineState, config: dict | None = None) -> PipelineState:
+        current = dict(state)
+        current = _merge_state(current, self.analyst.run(current))
+        current = _merge_state(current, self.po.run(current))
+
+        while current.get("current_story_id"):
+            current = _merge_state(current, self.dev.run(current))
+            current = _merge_state(current, self.qa.run(current))
+            if _route_after_qa(current) == "dev":
+                continue
+            current = _merge_state(current, _advance_node(current))
+
+        return current
+
+
+def build_graph(run_dir: Path | None = None, simple_mode: bool | None = None):
+    simple = bool(simple_mode)
+    if not simple and StateGraph is None:
+        raise RuntimeError("Pacote langgraph nao instalado. Instale as dependencias ou rode com --simple.")
+
+    analyst = AnalystAgent(run_dir=run_dir, simple_mode=simple)
+    po = POAgent(run_dir=run_dir, simple_mode=simple)
+    dev = DevAgent(run_dir=run_dir, simple_mode=simple)
+    qa = QAAgent(run_dir=run_dir, simple_mode=simple)
+
+    if simple:
+        return _SimpleCompiledGraph(analyst, po, dev, qa)
 
     graph = StateGraph(PipelineState)
 
