@@ -158,7 +158,17 @@ def _build_llm(settings: Settings) -> LLMPort:
     # quem roda em modo `fake`. Um dev novo não precisa da lib instalada.
     from infrastructure.llm.anthropic_adapter import AnthropicAdapter
 
-    return AnthropicAdapter(model=settings.model)
+    # Falha no startup, não no meio do primeiro run. Um `AuthenticationError`
+    # vindo do quarto nó do grafo, depois de já ter gasto tempo e escrito
+    # arquivo, é muito mais caro de diagnosticar do que isto.
+    if not settings.anthropic_api_key:
+        raise RuntimeError(
+            "SQUAD_LLM=anthropic exige ANTHROPIC_API_KEY. "
+            "Defina no code/backend/.env ou exporte no ambiente. "
+            "Para rodar sem chave, use SQUAD_LLM=fake."
+        )
+
+    return AnthropicAdapter(model=settings.model, api_key=settings.anthropic_api_key)
 
 
 async def _build_repositories(settings: Settings) -> tuple[Repositories, Any | None]:

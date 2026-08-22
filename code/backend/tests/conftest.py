@@ -45,6 +45,30 @@ segundos.
 """.strip()
 
 
+@pytest.fixture(autouse=True)
+def _isola_do_env_do_dev(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Blinda TODO teste do arquivo `.env` da máquina de quem roda.
+
+    Isto não é preciosismo — foi um incidente real: um dev com
+    `SQUAD_LLM=anthropic` no `.env` local fez a suíte chamar a API de verdade,
+    gastando token e falhando por motivo que não tinha nada a ver com o código.
+
+    Variável de ambiente tem precedência sobre o arquivo `.env` no
+    pydantic-settings, então fixar as três aqui neutraliza qualquer configuração
+    local. `autouse=True` porque a proteção não pode depender de o autor do
+    teste lembrar dela.
+
+    Um teste que precise de outro modo sobrescreve com `monkeypatch.setenv`.
+    """
+    monkeypatch.setenv("SQUAD_LLM", "fake")
+    monkeypatch.setenv("SQUAD_PERSISTENCE", "memory")
+    monkeypatch.setenv("SQUAD_SANDBOX", "none")
+    # `delenv` nao basta: ele remove a variavel do ambiente, mas o
+    # pydantic-settings ainda le o valor do ARQUIVO `.env`. Sobrescrever com
+    # vazio e o que efetivamente neutraliza a chave local.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+
+
 @pytest.fixture
 def clock() -> FrozenClock:
     return FrozenClock(step_seconds=1)

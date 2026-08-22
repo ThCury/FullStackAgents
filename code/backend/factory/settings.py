@@ -18,6 +18,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from domain.enums import AgentRole, Effort
 from domain.value_objects import AgentBudgetProfile, BudgetPolicy
 
+# Raiz do repositório, calculada a partir deste arquivo
+# (code/backend/factory/settings.py -> 3 níveis acima).
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# O workspace do código gerado vive FORA de `code/backend`, e isso é
+# intencional: o `uvicorn --reload` vigia o diretório de trabalho, então cada
+# arquivo que o Dev Agent escrevesse ali reiniciaria o servidor e mataria o run
+# no meio. Os excludes default do uvicorn (`.*`) não salvam — eles casam com o
+# nome do arquivo, e `nc_form.py` dentro de `.workspaces/` não começa com ponto.
+#
+# Caminho absoluto derivado do módulo, não relativo ao CWD: assim `uvicorn`,
+# `pytest` e um script solto resolvem para a mesma pasta.
+DEFAULT_WORKSPACE_ROOT = _REPO_ROOT / ".workspaces"
+
 
 class LlmMode(StrEnum):
     FAKE = "fake"
@@ -47,14 +61,23 @@ class Settings(BaseSettings):
 
     # --- modelo ---------------------------------------------------------------
     model: str = "claude-opus-5"
-    anthropic_api_key: str | None = None
+
+    # `validation_alias` escapa do prefixo `SQUAD_`: a variável é a padrão do
+    # ecossistema, `ANTHROPIC_API_KEY`, não `SQUAD_ANTHROPIC_API_KEY`.
+    #
+    # E o valor é passado explicitamente ao adapter em vez de deixar o SDK
+    # buscar no ambiente: quando a chave vem do arquivo `.env`, o
+    # pydantic-settings a carrega para dentro deste objeto mas **não** a exporta
+    # para `os.environ` — então o SDK não a encontraria, e o run morreria com
+    # erro de credencial faltando.
+    anthropic_api_key: str | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
 
     # --- Mongo ----------------------------------------------------------------
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db: str = "squad_db"
 
     # --- workspace ------------------------------------------------------------
-    workspace_root: Path = Path("./.workspaces")
+    workspace_root: Path = DEFAULT_WORKSPACE_ROOT
     use_git: bool = True
 
     # --- fluxo ----------------------------------------------------------------

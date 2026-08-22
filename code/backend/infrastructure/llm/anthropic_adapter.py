@@ -44,8 +44,14 @@ class AnthropicAdapter:
         self,
         client: AsyncAnthropic | None = None,
         model: str = DEFAULT_MODEL,
+        api_key: str | None = None,
     ) -> None:
-        self._client = client or AsyncAnthropic()
+        # A chave vem das Settings, não do ambiente: quando ela está no arquivo
+        # `.env`, o pydantic-settings a carrega no objeto de config mas não a
+        # exporta para `os.environ`, e o `AsyncAnthropic()` sem argumento não a
+        # encontraria. `api_key=None` mantém o comportamento padrão do SDK
+        # (procura `ANTHROPIC_API_KEY` no ambiente) para quem exporta a variável.
+        self._client = client or AsyncAnthropic(api_key=api_key)
         self._model = model
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
@@ -94,7 +100,7 @@ class AnthropicAdapter:
                 "effort": request.effort.value,
                 "format": {
                     "type": "json_schema",
-                    "schema": request.output_schema,
+                    "schema": _strict_schema(request.output_schema),
                 },
             },
         }
@@ -110,6 +116,35 @@ class AnthropicAdapter:
         if request.cache_system:
             block["cache_control"] = {"type": "ephemeral"}
         return [block]
+
+
+def _strict_schema(schema: Any) -> Any:
+    """Adapta o JSON Schema do Pydantic ao que o structured output exige.
+
+    A API recusa o schema com HTTP 400 se algum objeto não declarar
+    `additionalProperties: false` explicitamente:
+
+        output_config.format.schema: For 'object' type,
+        'additionalProperties' must be explicitly set to false
+
+    O `model_config = ConfigDict(extra="forbid")` resolve para o modelo de
+    topo, mas **não** para os modelos aninhados que ele referencia em `$defs`
+    (`Pain`, `Constraint`, `Actor`…). Marcar `extra="forbid"` em toda entidade
+    do domínio só para agradar um provider seria acoplamento na direção errada —
+    então a normalização mora aqui, no adapter, que é quem conhece a exigência.
+
+    Percorre recursivamente `properties`, `$defs`, `items`, `anyOf`/`oneOf`/
+    `allOf` e `additionalProperties` aninhado.
+    """
+    if isinstance(schema, list):
+        return [_strict_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+
+    out = {key: _strict_schema(value) for key, value in schema.items()}
+    if out.get("type") == "object":
+        out["additionalProperties"] = False
+    return out
 
 
 def _first_text_block(message: Any) -> str:

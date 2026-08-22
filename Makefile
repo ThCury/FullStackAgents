@@ -49,5 +49,5 @@ console:
 	cd $(FRONTEND) && npm run dev
 
 clean:
-	rm -rf $(BACKEND)/.workspaces $(BACKEND)/.pytest_cache $(BACKEND)/.mypy_cache $(BACKEND)/.ruff_cache
+	rm -rf .workspaces $(BACKEND)/.pytest_cache $(BACKEND)/.mypy_cache $(BACKEND)/.ruff_cache
 	find $(BACKEND) -name __pycache__ -type d -prune -exec rm -rf {} +

@@ -14,7 +14,7 @@ venv/
 .ruff_cache/
 
 # Codigo GERADO pelo Dev Agent — artefato de execucao, nao fonte
-code/backend/.workspaces/
+.workspaces/
 
 # Node
 node_modules/
