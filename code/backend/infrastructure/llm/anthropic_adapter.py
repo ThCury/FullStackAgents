@@ -67,9 +67,22 @@ _MODELS_WITH_EFFORT = frozenset(
     }
 )
 
+# Limites do provider que são menores que os perfis internos do squad. O Dev
+# pede até 96k porque modelos maiores aceitam esse volume, mas o Haiku 4.5
+# recusa qualquer valor acima de 64k antes mesmo de gerar o primeiro token.
+_MODEL_MAX_OUTPUT_TOKENS = {
+    "claude-haiku-4-5": 64_000,
+    "claude-haiku-4-5-20251001": 64_000,
+}
+
 
 def _supports_effort(model: str) -> bool:
     return model in _MODELS_WITH_EFFORT
+
+
+def _effective_max_tokens(model: str, requested: int) -> int:
+    limit = _MODEL_MAX_OUTPUT_TOKENS.get(model)
+    return min(requested, limit) if limit is not None else requested
 
 
 # Acima disso o SDK exige streaming para não estourar o timeout de HTTP.
@@ -137,7 +150,7 @@ class AnthropicAdapter:
         }
         params: dict[str, Any] = {
             "model": self._model,
-            "max_tokens": request.max_tokens,
+            "max_tokens": _effective_max_tokens(self._model, request.max_tokens),
             "system": self._system_blocks(request),
             "messages": [{"role": "user", "content": request.user}],
             "output_config": output_config,

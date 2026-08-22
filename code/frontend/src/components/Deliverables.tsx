@@ -8,18 +8,36 @@
 import { useEffect, useState } from 'react'
 import { api, type Deliverables as Data } from '../api/client'
 
-type Tab = 'backlog' | 'adrs' | 'qa' | 'artifacts'
+export type DeliverableTab = 'backlog' | 'adrs' | 'qa' | 'artifacts'
 
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: DeliverableTab; label: string }[] = [
   { id: 'backlog', label: 'Backlog (PO)' },
   { id: 'adrs', label: 'Decisões (Dev)' },
   { id: 'qa', label: 'Relatório QA' },
   { id: 'artifacts', label: 'Código' },
 ]
 
-export function Deliverables({ runId, refreshKey }: { runId: string; refreshKey: number }) {
+interface Props {
+  runId: string
+  refreshKey: number
+  defaultTab?: DeliverableTab
+  visibleTabs?: DeliverableTab[]
+}
+
+export function Deliverables({
+  runId,
+  refreshKey,
+  defaultTab = 'backlog',
+  visibleTabs = TABS.map(({ id }) => id),
+}: Props) {
   const [data, setData] = useState<Data | null>(null)
-  const [tab, setTab] = useState<Tab>('backlog')
+  const [tab, setTab] = useState<DeliverableTab>(defaultTab)
+
+  const availableTabs = TABS.filter(({ id }) => visibleTabs.includes(id))
+
+  useEffect(() => {
+    setTab(defaultTab)
+  }, [defaultTab, runId])
 
   useEffect(() => {
     void api.deliverables(runId).then(setData).catch(() => undefined)
@@ -29,8 +47,8 @@ export function Deliverables({ runId, refreshKey }: { runId: string; refreshKey:
 
   return (
     <section className="deliverables">
-      <nav className="tabs">
-        {TABS.map(({ id, label }) => (
+      {availableTabs.length > 1 && <nav className="tabs">
+        {availableTabs.map(({ id, label }) => (
           <button
             key={id}
             type="button"
@@ -40,7 +58,7 @@ export function Deliverables({ runId, refreshKey }: { runId: string; refreshKey:
             {label}
           </button>
         ))}
-      </nav>
+      </nav>}
 
       {tab === 'backlog' && (
         <div className="cards">

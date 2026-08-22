@@ -31,6 +31,7 @@ Os defaults (`SQUAD_LLM=fake`, `SQUAD_PERSISTENCE=memory`) rodam o squad complet
 ```bash
 export ANTHROPIC_API_KEY=...
 export SQUAD_LLM=anthropic
+export SQUAD_MODEL=claude-haiku-4-5-20251001
 export SQUAD_PERSISTENCE=mongo   # requer `docker compose up -d mongo`
 export SQUAD_SANDBOX=subprocess  # QA executa a suíte de verdade
 ```

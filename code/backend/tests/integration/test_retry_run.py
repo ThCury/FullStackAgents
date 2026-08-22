@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from domain.enums import AgentRole
+from domain.enums import AgentRole, RunStatus
 from domain.errors import LLMResponseTruncated
 from domain.ports.llm import LLMRequest, LLMResponse
 from infrastructure.llm.fake_llm import FakeLLM
@@ -125,7 +125,7 @@ async def test_sem_checkpoint_a_retomada_e_recusada(squad: dict[str, Any]) -> No
         briefing=BRIEFING_RIVEXX,
         policy=BudgetPolicy(),
         now=squad["clock"].now(),
-    )
+    ).with_status(RunStatus.FAILED)
     await repos.runs.save(run)
 
     use_case = RetryRunUseCase(
