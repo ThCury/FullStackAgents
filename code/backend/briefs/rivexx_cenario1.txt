@@ -1,0 +1,10 @@
+Empresa: Rivexx Componentes. Indústria de componentes plásticos de alta precisão, 2 plantas, fornecimento para os setores automotivo e eletroeletrônico. Certificada, auditada trimestralmente, 480 colaboradores, operação em 3 turnos.
+
+O problema: Toda não conformidade detectada - internamente ou pelo cliente - desencadeia uma investigação manual. Quem operou, qual lote, qual matéria-prima, qual equipamento. A informação existe, mas está espalhada em registros físicos, planilhas e memória de pessoas.
+
+O que a Rivexx precisa nesta rodada (escopo reduzido, apenas o cenário 1 - as demais rodadas cobrem causa raiz e rastreabilidade de lote depois): uma tela e endpoint de registro ágil de não conformidade. Um operador na linha de produção descreve um defeito (ex: defeito dimensional na linha 4) e registra pelo formulário.
+
+Restrições do cliente:
+- Aplicação responsiva - operadores registram pelo celular no chão de fábrica
+- Interface operável sem treinamento técnico
+- Todo registro com evidência auditável - data, responsável, turno e equipamento
