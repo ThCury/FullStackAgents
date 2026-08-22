@@ -4,15 +4,17 @@ import { useState } from "react";
 
 export function Launcher({
   onSubmit,
+  disabled,
 }: {
   onSubmit: (demand: string) => void;
+  disabled?: boolean;
 }) {
   const [demand, setDemand] = useState("");
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const trimmed = demand.trim();
-    if (!trimmed) return;
+    if (!trimmed || disabled) return;
     onSubmit(trimmed);
     setDemand("");
   }
@@ -23,9 +25,10 @@ export function Launcher({
         value={demand}
         onChange={(event) => setDemand(event.target.value)}
         placeholder="Descreva a demanda para o squad de agentes..."
+        disabled={disabled}
       />
-      <button type="submit" disabled={!demand.trim()}>
-        Enviar demanda
+      <button type="submit" disabled={disabled || !demand.trim()}>
+        {disabled ? "Squad trabalhando..." : "Enviar demanda"}
       </button>
     </form>
   );
