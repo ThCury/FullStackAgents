@@ -89,7 +89,10 @@ ignore = [
 "factory/**" = ["TID251"]
 "application/use_cases/run_squad.py" = ["TID251"]  # importa `langgraph.types.Command`
 "main.py" = ["TID251"]
-"tests/**" = ["TID251", "RUF012"]
+# ASYNC240 quer I/O de arquivo assíncrono. Em asserção de teste, checar o disco
+# de forma bloqueante é o comportamento desejado — não vamos trazer anyio.Path
+# só para o assert.
+"tests/**" = ["TID251", "RUF012", "ASYNC240"]
 # Fixtures sao DADOS (briefing e backlog da Rivexx em prosa). Quebrar as frases
 # em 100 colunas prejudicaria a leitura sem ganho nenhum.
 "infrastructure/llm/fixtures.py" = ["E501"]

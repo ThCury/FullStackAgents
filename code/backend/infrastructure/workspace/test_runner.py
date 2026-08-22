@@ -21,6 +21,8 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import subprocess
+import time
 from pathlib import Path
 
 from domain.entities.quality import Evidence
@@ -83,38 +85,49 @@ class SubprocessTestRunner:
         return await self._run(run_id, ["python", "-m", "ruff", "check", "."], "stdout")
 
     async def _run(self, run_id: str, command: list[str], evidence_kind: str) -> TestRunResult:
+        """Executa em thread, não via `asyncio.create_subprocess_exec`.
+
+        Mesmo motivo do `LocalGitWorkspace._git`: o `WindowsSelectorEventLoop`
+        que o uvicorn instala não suporta subprocesso e levanta
+        `NotImplementedError` sem mensagem. `subprocess.run` em `to_thread`
+        funciona em qualquer event loop, e ainda traz o `timeout=` de graça.
+        """
         cwd = self._root / run_id
         if not cwd.is_dir():
             return TestRunResult(exit_code=1, stderr=f"workspace inexistente: {cwd}")
 
         env = {k: v for k in self._ENV_ALLOWLIST if (v := os.environ.get(k))}
-        started = asyncio.get_running_loop().time()
+        started = time.monotonic()
 
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            cwd=str(cwd),
-            env=env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
         try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=self._timeout)
-        except TimeoutError:
-            process.kill()
-            await process.wait()
+            result = await asyncio.to_thread(
+                subprocess.run,
+                command,
+                cwd=str(cwd),
+                env=env,
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=self._timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
             return TestRunResult(
                 exit_code=124,
                 stderr=f"timeout após {self._timeout}s: {' '.join(command)}",
+                duration_ms=int((time.monotonic() - started) * 1000),
                 timed_out=True,
             )
+        except FileNotFoundError:
+            # Comando ausente no PATH. Falha explícita: o QA precisa reprovar
+            # por "não pôde executar", nunca aprovar por omissão.
+            return TestRunResult(exit_code=127, stderr=f"comando não encontrado: {command[0]}")
 
-        duration_ms = int((asyncio.get_running_loop().time() - started) * 1000)
-        out = stdout.decode(errors="replace")
-
+        out = result.stdout or ""
         return TestRunResult(
-            exit_code=process.returncode or 0,
+            exit_code=result.returncode,
             stdout=out,
-            stderr=stderr.decode(errors="replace"),
-            duration_ms=duration_ms,
+            stderr=result.stderr or "",
+            duration_ms=int((time.monotonic() - started) * 1000),
             evidence=[Evidence(kind=evidence_kind, path_or_inline=out[-4000:])],
         )

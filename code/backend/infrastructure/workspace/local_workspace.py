@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import subprocess
 from pathlib import Path
 
 from domain.entities.delivery import SourceFile
@@ -98,14 +99,26 @@ class LocalGitWorkspace:
         return target
 
     async def _git(self, cwd: Path, *args: str) -> str:
-        process = await asyncio.create_subprocess_exec(
-            "git",
-            *args,
+        """Roda `git` em thread, não via `asyncio.create_subprocess_exec`.
+
+        No Windows o uvicorn instala o `WindowsSelectorEventLoop`, que **não
+        suporta subprocesso**: `create_subprocess_exec` levanta
+        `NotImplementedError` puro, sem mensagem, no primeiro `POST /runs`.
+        `subprocess.run` dentro de `to_thread` funciona em qualquer event loop e
+        em qualquer plataforma.
+
+        Não use `create_subprocess_exec` neste projeto por esse motivo — vale
+        também para o `TestRunnerPort`.
+        """
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["git", *args],
             cwd=str(cwd),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
         )
-        stdout, stderr = await process.communicate()
-        if process.returncode != 0:
-            raise RuntimeError(f"git {' '.join(args)} falhou: {stderr.decode(errors='replace')}")
-        return stdout.decode(errors="replace")
+        if result.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)} falhou: {result.stderr}")
+        return result.stdout
