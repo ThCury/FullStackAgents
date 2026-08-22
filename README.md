@@ -15,7 +15,7 @@ cd code/backend && python -m venv .venv && .venv/Scripts/python -m pip install -
 ```
 
 ```bash
-cd code/backend && .venv/Scripts/uvicorn main:app --reload
+cd code/backend && .venv/Scripts/uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ```bash
@@ -112,10 +112,17 @@ Individualmente, dentro de `code/backend`:
 | `GET` | `/runs/{id}/calls/{call_id}` | Prompt e resposta crus — o Inspector |
 | `GET` | `/runs/{id}/deliverables` | Os 5 entregáveis da trilha |
 | `GET` | `/runs/{id}/metrics` | Tokens, custo, cache hit rate |
-| `POST` | `/runs/{id}/resume` | Retoma um run pausado (`retry` / `skip` / `finish`) |
+| `POST` | `/runs/{id}/resume` | Retoma um run pausado em `interrupt()` (`retry` / `skip` / `finish`) |
+| `POST` | `/runs/{id}/retry` | Retoma um run que **falhou**, do último nó concluído |
+| `GET` | `/runs/{id}/resumable` | Diz se há checkpoint para retomar |
 | `POST` | `/runs/{id}/budget` | Estende o orçamento (decisão humana registrada) |
 
-Docs interativas em `http://localhost:8000/docs`.
+Docs interativas em http://127.0.0.1:8000/docs.
+
+> **Use `127.0.0.1`, não `localhost`.** O uvicorn escuta em IPv4; no Windows e no
+> Node 17+ `localhost` resolve primeiro para `::1` (IPv6) e a conexão é recusada
+> com `ECONNREFUSED ::1:8000` — parece servidor caído, mas é a pilha de rede.
+> O Console não sofre disso: ele usa caminho relativo e passa pelo proxy do Vite.
 
 ---
 

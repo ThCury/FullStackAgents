@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from domain.enums import AgentRole
-from domain.errors import NoCheckpointAvailable, RunNotFound
+from domain.errors import NoCheckpointAvailable, RunNotFound, RunNotRetryable
 from interfaces.http.deps import (
     ApproveBudgetDep,
     ContainerDep,
@@ -122,6 +122,8 @@ async def retry_run(run_id: str, use_case: RetryRunDep) -> dict[str, Any]:
         run = await use_case.execute(run_id)
     except RunNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except RunNotRetryable as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except NoCheckpointAvailable as exc:
         # 409, não 404: o run existe, mas não há estado para retomar.
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc

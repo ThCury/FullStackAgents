@@ -5,7 +5,22 @@
  * É o equivalente das *ports* do backend — trocar o transporte não toca a UI.
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+/**
+ * Base da API. Vazio por padrão = **caminho relativo**.
+ *
+ * Duas razões para não apontar para `http://localhost:8000`:
+ *
+ * 1. `localhost` resolve para `::1` (IPv6) no Windows e no Node 17+, mas o
+ *    uvicorn escuta em `127.0.0.1` (IPv4). O sintoma é
+ *    `connect ECONNREFUSED ::1:8000`, que parece "servidor caído" quando o
+ *    servidor está no ar.
+ * 2. URL absoluta para outra porta é cross-origin, e obriga a manter CORS.
+ *    Com caminho relativo o pedido vai para o próprio Vite, que faz o proxy
+ *    (ver vite.config.ts) — mesma origem, zero CORS.
+ *
+ * `VITE_API_URL` continua disponível para apontar para um backend remoto.
+ */
+const BASE = import.meta.env.VITE_API_URL ?? ''
 
 export type AgentRole =
   | 'briefing_analyst'

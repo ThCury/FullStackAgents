@@ -36,6 +36,42 @@ from domain.value_objects import TokenUsage
 
 DEFAULT_MODEL = "claude-opus-5"
 
+# Ids válidos. Os sufixos de versão usam HÍFEN, não ponto: `claude-haiku-4-5`,
+# nunca `claude-haiku-4.5`. O erro é fácil de cometer e o provider responde só
+# `404 model: <id>`, sem sugerir a grafia correta — daí a validação local.
+KNOWN_MODELS = frozenset(
+    {
+        "claude-fable-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-5",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+        "claude-haiku-4-5-20251001",
+    }
+)
+
+# Geração que aceita `thinking: adaptive` e `output_config.effort`.
+# O Haiku 4.5 está fora: nele os dois parâmetros retornam 400.
+_MODELS_WITH_EFFORT = frozenset(
+    {
+        "claude-fable-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-5",
+        "claude-sonnet-4-6",
+    }
+)
+
+
+def _supports_effort(model: str) -> bool:
+    return model in _MODELS_WITH_EFFORT
+
+
 # Acima disso o SDK exige streaming para não estourar o timeout de HTTP.
 _STREAMING_THRESHOLD = 8_000
 
@@ -96,21 +132,27 @@ class AnthropicAdapter:
 
     # ------------------------------------------------------------------ interno
     def _build_params(self, request: LLMRequest) -> dict[str, Any]:
-        return {
+        output_config: dict[str, Any] = {
+            "format": {"type": "json_schema", "schema": _strict_schema(request.output_schema)}
+        }
+        params: dict[str, Any] = {
             "model": self._model,
             "max_tokens": request.max_tokens,
             "system": self._system_blocks(request),
             "messages": [{"role": "user", "content": request.user}],
-            # Thinking adaptativo: sem `budget_tokens`, que foi removido.
-            "thinking": {"type": "adaptive"},
-            "output_config": {
-                "effort": request.effort.value,
-                "format": {
-                    "type": "json_schema",
-                    "schema": _strict_schema(request.output_schema),
-                },
-            },
+            "output_config": output_config,
         }
+
+        # `thinking: adaptive` e `output_config.effort` existem só na geração
+        # 4.6+. Enviá-los para um modelo mais antigo (Haiku 4.5, Sonnet 4.5)
+        # devolve 400. Como o projeto permite trocar de modelo por variável de
+        # ambiente — inclusive para um mais barato —, o adapter precisa se
+        # adaptar em vez de assumir a geração mais nova.
+        if _supports_effort(self._model):
+            params["thinking"] = {"type": "adaptive"}
+            output_config["effort"] = request.effort.value
+
+        return params
 
     def _system_blocks(self, request: LLMRequest) -> list[dict[str, Any]]:
         """O system prompt é o prefixo estável — logo, o breakpoint de cache.

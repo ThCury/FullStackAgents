@@ -1,0 +1,492 @@
+{
+  "info": {
+    "_postman_id": "9a215c45-1b75-4af7-b92d-762435677e8c",
+    "name": "FullStack Agents - Squad API",
+    "description": "Collection da API do Squad Autônomo da Trilha B. Execute `POST /runs - Iniciar squad` primeiro; o script de teste salva automaticamente o `runId`. A API local usa 127.0.0.1 para evitar que clientes Electron/Node resolvam localhost como ::1 (IPv6).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "runId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "callId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sinceSeq",
+      "value": "-1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verifica se a API está disponível."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('API saudável', function () { pm.expect(pm.response.json().status).to.eql('ok'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Configuração ativa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "config"
+              ]
+            },
+            "description": "Mostra LLM, persistência, sandbox, orçamento e agentes ativos sem expor segredos."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Runs",
+      "item": [
+        {
+          "name": "Iniciar squad",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"briefing\": \"Empresa: Rivexx Componentes. Criar uma aplicação web interna para registrar não conformidades com data, responsável, turno, equipamento e lote; conduzir análise de causa raiz; gerar planos de ação corretiva; e rastrear a cadeia completa de qualquer lote.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs"
+              ]
+            },
+            "description": "Aciona o squad em background. Retorna HTTP 202 e salva automaticamente o id na variável `runId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Run aceito', function () { pm.response.to.have.status(202); });",
+                  "const body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('runId', body.id); }",
+                  "pm.test('runId retornado', function () { pm.expect(body.id).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar runs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Entre 1 e 100."
+                }
+              ]
+            },
+            "description": "Lista os runs mais recentes."
+          }
+        },
+        {
+          "name": "Consultar run",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}"
+              ]
+            },
+            "description": "Consulta o estado atual do run salvo em `runId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Consulta realizada', function () { pm.expect(pm.response.code).to.be.oneOf([200, 404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verificar retomada após falha",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/resumable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "resumable"
+              ]
+            },
+            "description": "Informa se existe checkpoint para retomar um run que falhou."
+          }
+        },
+        {
+          "name": "Retomar run após falha",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "retry"
+              ]
+            },
+            "description": "Retoma um run com status failed a partir do último checkpoint. Não envia body."
+          }
+        },
+        {
+          "name": "Retomar run pausado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution\": \"retry\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "resume"
+              ]
+            },
+            "description": "Retoma um run pausado. Valores aceitos para `resolution`: `retry`, `skip` ou `finish`."
+          }
+        },
+        {
+          "name": "Adicionar orçamento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"extra_tokens\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/budget",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "budget"
+              ]
+            },
+            "description": "Acrescenta tokens ao orçamento do run. Intervalo aceito: 1 a 5.000.000."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auditoria e entregáveis",
+      "item": [
+        {
+          "name": "Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/timeline?since_seq={{sinceSeq}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "timeline"
+              ],
+              "query": [
+                {
+                  "key": "since_seq",
+                  "value": "{{sinceSeq}}",
+                  "description": "-1 retorna todo o histórico."
+                },
+                {
+                  "key": "agent",
+                  "value": "developer",
+                  "disabled": true,
+                  "description": "Opcional: briefing_analyst, product_owner, developer, qa, orchestrator ou human."
+                }
+              ]
+            },
+            "description": "Retorna a trilha auditável. Habilite `agent` para filtrar por papel."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const events = pm.response.json();",
+                  "  if (Array.isArray(events) && events.length && events[events.length - 1].seq !== undefined) {",
+                  "    pm.collectionVariables.set('sinceSeq', String(events[events.length - 1].seq));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhe de chamada LLM",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/calls/{{callId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "calls",
+                "{{callId}}"
+              ]
+            },
+            "description": "Consulta prompt, resposta, tokens e latência. Preencha `callId` com um identificador presente na auditoria."
+          }
+        },
+        {
+          "name": "Entregáveis do run",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/deliverables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "deliverables"
+              ]
+            },
+            "description": "Retorna backlog, ADRs, relatórios de teste, artefatos e quantidade de mensagens."
+          }
+        },
+        {
+          "name": "Métricas do run",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "metrics"
+              ]
+            },
+            "description": "Retorna orçamento, tokens, chamadas, cache hit rate e latência."
+          }
+        },
+        {
+          "name": "Stream SSE",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              },
+              {
+                "key": "Cache-Control",
+                "value": "no-cache"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/runs/{{runId}}/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "runs",
+                "{{runId}}",
+                "stream"
+              ]
+            },
+            "description": "Abre o stream de eventos em tempo real. A conexão permanece aberta enquanto o cliente estiver escutando."
+          }
+        }
+      ]
+    }
+  ]
+}

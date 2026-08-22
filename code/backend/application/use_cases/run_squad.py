@@ -13,7 +13,13 @@ from typing import Any
 
 from domain.entities.run import Run
 from domain.enums import RunStatus
-from domain.errors import BudgetExceeded, DomainError, NoCheckpointAvailable, RunNotFound
+from domain.errors import (
+    BudgetExceeded,
+    DomainError,
+    NoCheckpointAvailable,
+    RunNotFound,
+    RunNotRetryable,
+)
 from domain.ports.execution import CodeWorkspacePort
 from domain.ports.observability import EventBusPort, SquadEvent, TokenMeterPort
 from domain.ports.repositories import RunRepository
@@ -161,6 +167,10 @@ class RetryRunUseCase:
 
     async def has_checkpoint(self, run_id: str) -> bool:
         """Existe estado salvo para retomar este run?"""
+        run = await self._runs.get(run_id)
+        if run is None or run.status is not RunStatus.FAILED:
+            return False
+
         config = {"configurable": {"thread_id": run_id}}
         try:
             snapshot = await self._graph.aget_state(config)
@@ -172,6 +182,8 @@ class RetryRunUseCase:
         run = await self._runs.get(run_id)
         if run is None:
             raise RunNotFound(run_id)
+        if run.status is not RunStatus.FAILED:
+            raise RunNotRetryable(run_id, run.status.value)
 
         if not await self.has_checkpoint(run_id):
             raise NoCheckpointAvailable(run_id)

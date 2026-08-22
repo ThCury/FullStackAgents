@@ -156,7 +156,18 @@ def _build_llm(settings: Settings) -> LLMPort:
 
     # Import local: mantém o SDK da Anthropic fora do caminho de importação de
     # quem roda em modo `fake`. Um dev novo não precisa da lib instalada.
-    from infrastructure.llm.anthropic_adapter import AnthropicAdapter
+    from infrastructure.llm.anthropic_adapter import KNOWN_MODELS, AnthropicAdapter
+
+    # Id de modelo errado só apareceria como `404 model: <id>` depois de o run
+    # começar — e o provider não sugere a grafia certa. O erro mais comum é usar
+    # ponto no lugar de hífen (`claude-haiku-4.5`).
+    if settings.model not in KNOWN_MODELS:
+        provavel = settings.model.replace(".", "-")
+        dica = f" Você quis dizer '{provavel}'?" if provavel in KNOWN_MODELS else ""
+        raise RuntimeError(
+            f"SQUAD_MODEL='{settings.model}' não é um id conhecido.{dica} "
+            f"Válidos: {', '.join(sorted(KNOWN_MODELS))}"
+        )
 
     # Falha no startup, não no meio do primeiro run. Um `AuthenticationError`
     # vindo do quarto nó do grafo, depois de já ter gasto tempo e escrito

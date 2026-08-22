@@ -42,8 +42,10 @@ format:
 	cd $(BACKEND) && .venv/Scripts/python -m ruff check . --fix
 	cd $(BACKEND) && .venv/Scripts/python -m ruff format .
 
+# --host explicito em IPv4: `localhost` resolve para ::1 no Windows e o
+# uvicorn escuta em IPv4, o que da `ECONNREFUSED ::1:8000`.
 api:
-	cd $(BACKEND) && .venv/Scripts/uvicorn main:app --reload
+	cd $(BACKEND) && .venv/Scripts/uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 console:
 	cd $(FRONTEND) && npm run dev

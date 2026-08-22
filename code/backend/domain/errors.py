@@ -108,6 +108,18 @@ class NoCheckpointAvailable(DomainError):
         )
 
 
+class RunNotRetryable(DomainError):
+    """A retomada por checkpoint só faz sentido para um run que falhou."""
+
+    def __init__(self, run_id: str, status: str) -> None:
+        self.run_id = run_id
+        self.status = status
+        super().__init__(
+            f"Run {run_id} está em '{status}' e não pode ser retomado por falha. "
+            "Use /retry somente quando o status for 'failed'."
+        )
+
+
 class StoryNotFound(DomainError):
     def __init__(self, story_id: str) -> None:
         self.story_id = story_id
