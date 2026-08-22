@@ -1,0 +1,28 @@
+# Segredos
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Codigo GERADO pelo Dev Agent — artefato de execucao, nao fonte
+code/backend/.workspaces/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
