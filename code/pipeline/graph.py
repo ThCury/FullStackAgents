@@ -15,6 +15,8 @@ Fluxo:
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from langgraph.graph import END, StateGraph
 
 from .agents import AnalystAgent, DevAgent, POAgent, QAAgent
@@ -53,11 +55,11 @@ def _route_after_po(state: PipelineState) -> str:
     return "dev" if state["current_story_id"] else END
 
 
-def build_graph():
-    analyst = AnalystAgent()
-    po = POAgent()
-    dev = DevAgent()
-    qa = QAAgent()
+def build_graph(run_dir: Path | None = None):
+    analyst = AnalystAgent(run_dir=run_dir)
+    po = POAgent(run_dir=run_dir)
+    dev = DevAgent(run_dir=run_dir)
+    qa = QAAgent(run_dir=run_dir)
 
     graph = StateGraph(PipelineState)
 

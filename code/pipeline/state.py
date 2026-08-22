@@ -46,6 +46,7 @@ class Message(TypedDict):
 
 class PipelineState(TypedDict):
     raw_brief: str
+    brief_history: str
     enriched_brief: str
 
     backlog: list[UserStory]
@@ -66,6 +67,7 @@ def initial_state(brief: str, max_revisions: int | None = None) -> PipelineState
 
     return PipelineState(
         raw_brief=brief,
+        brief_history="",
         enriched_brief="",
         backlog=[],
         story_index=0,

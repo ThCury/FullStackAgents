@@ -29,8 +29,31 @@ START -> Analyst -> PO -> Dev -> QA --(reprovado, ainda há retentativas)--> Dev
   `artifacts/qa_report.jsonl`.
 
 Toda comunicação entre agentes é registrada em
-`artifacts/communication_log.jsonl` (quem falou com quem, e o quê) — é isso
-que torna a orquestração auditável.
+`artifacts/runs/<NNN>_<timestamp>/communication_log.jsonl` (quem falou com
+quem, e o quê) — é isso que torna a orquestração auditável.
+
+## Brief inicial vs. incremento
+
+O primeiro brief recebido constrói a aplicação em `code/app` do zero. Cada
+execução seguinte é tratada como um **incremento** sobre o que já foi
+entregue - não é preciso sinalizar isso explicitamente.
+
+Isso funciona porque cada chamada a `run_pipeline` grava sua própria pasta em
+`artifacts/runs/<NNN>_<timestamp>/` (brief recebido, backlog, decisões, QA,
+comunicação) e o Analyst recebe, além do código atual de `code/app`, um resumo
+textual de todas as execuções anteriores (`history.py`). Com isso ele
+consegue diferenciar "construir do zero" de "adicionar/alterar algo que já
+existe", e instrui o PO a não recriar stories de escopo já entregue.
+
+## Modo interativo
+
+```bash
+python3 -m pipeline.run --interactive
+```
+
+Pede um brief por vez no terminal (finalize cada mensagem com uma linha em
+branco). A primeira mensagem constrói o sistema; as próximas incrementam o
+que já foi construído, uma de cada vez.
 
 ## Isolamento de responsabilidades
 
@@ -55,7 +78,8 @@ python3 -m pipeline.run --brief-file pipeline/briefs/rivexx.txt
 ```
 
 O resultado final (status, stories, decisões, veredito do QA) é impresso no
-final da execução, e o detalhe completo fica em `pipeline/artifacts/`.
+final da execução, e o detalhe completo de cada rodada fica em
+`pipeline/artifacts/runs/<NNN>_<timestamp>/`.
 
 ## Uso programático
 

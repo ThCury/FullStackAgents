@@ -23,7 +23,7 @@ class BaseAgent:
     model: str = config.DEFAULT_MODEL
     system_prompt: str = ""
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, run_dir: Path | None = None):
         if not config.ANTHROPIC_API_KEY:
             raise RuntimeError(
                 "ANTHROPIC_API_KEY não configurada. Defina a variável de ambiente "
@@ -32,6 +32,10 @@ class BaseAgent:
         self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         if model:
             self.model = model
+        # Diretório de artefatos da execução atual (pipeline/artifacts/runs/NNN_...).
+        # Cai no diretório flat de artifacts/ quando o agente é usado fora de uma
+        # execução do grafo (ex: testes manuais).
+        self.run_dir = run_dir or config.ARTIFACTS_DIR
 
     # -- comunicação com o LLM -------------------------------------------------
 
@@ -107,8 +111,8 @@ class BaseAgent:
     # -- persistência de artefatos ------------------------------------------
 
     def _artifacts_path(self, filename: str) -> Path:
-        config.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-        return config.ARTIFACTS_DIR / filename
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        return self.run_dir / filename
 
     def write_json_artifact(self, filename: str, data: Any) -> None:
         self._artifacts_path(filename).write_text(
