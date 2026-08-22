@@ -1,4 +1,4 @@
-"""Montagem do grafo LangGraph do squad.
+r"""Montagem do grafo LangGraph do squad.
 
 O pipeline NÃO conhece a lógica interna de nenhum agente - apenas instancia
 cada classe (definida em agents/) e registra `agent.run` como nó do grafo.
@@ -80,17 +80,37 @@ class _SimpleCompiledGraph:
 
     def invoke(self, state: PipelineState, config: dict | None = None) -> PipelineState:
         current = dict(state)
-        current = _merge_state(current, self.analyst.run(current))
-        current = _merge_state(current, self.po.run(current))
+        for chunk in self.stream(current, config=config):
+            for updates in chunk.values():
+                current = _merge_state(current, updates)
+        return current
+
+    def stream(self, state: PipelineState, config: dict | None = None, stream_mode: str | None = None):
+        current = dict(state)
+
+        updates = self.analyst.run(current)
+        current = _merge_state(current, updates)
+        yield {"analyst": updates}
+
+        updates = self.po.run(current)
+        current = _merge_state(current, updates)
+        yield {"po": updates}
 
         while current.get("current_story_id"):
-            current = _merge_state(current, self.dev.run(current))
-            current = _merge_state(current, self.qa.run(current))
+            updates = self.dev.run(current)
+            current = _merge_state(current, updates)
+            yield {"dev": updates}
+
+            updates = self.qa.run(current)
+            current = _merge_state(current, updates)
+            yield {"qa": updates}
+
             if _route_after_qa(current) == "dev":
                 continue
-            current = _merge_state(current, _advance_node(current))
 
-        return current
+            updates = _advance_node(current)
+            current = _merge_state(current, updates)
+            yield {"advance": updates}
 
 
 def build_graph(run_dir: Path | None = None, simple_mode: bool | None = None):

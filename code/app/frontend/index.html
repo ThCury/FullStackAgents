@@ -1,74 +1,100 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rivexx Qualidade</title>
-    <link rel="stylesheet" href="/style.css" />
-  </head>
-  <body>
-    <main class="shell">
-      <header>
-        <p>Rivexx Componentes</p>
-        <h1>Qualidade e rastreabilidade</h1>
-      </header>
-      <nav>
-        <button data-tab="squad">Squad</button>
-        <button data-tab="registro">Registro</button>
-        <button data-tab="causa">Causa raiz</button>
-        <button data-tab="lote">Rastreabilidade</button>
-      </nav>
-      <section id="squad" class="tab active">
-        <div class="console-layout">
-          <form id="briefingForm" class="panel">
-            <label for="briefingInput">Briefing do cliente</label>
-            <textarea id="briefingInput" name="briefing" required></textarea>
-            <button type="submit">Rodar squad</button>
-            <p id="runStatus"></p>
-          </form>
-          <aside class="panel metrics" id="runMetrics"></aside>
-        </div>
-        <div class="observability">
-          <section>
-            <h2>Conversacao entre agentes</h2>
-            <div id="conversationLog"></div>
-          </section>
-          <section>
-            <h2>Backlog PO</h2>
-            <div id="backlogLog"></div>
-          </section>
-          <section>
-            <h2>Decisoes Dev</h2>
-            <div id="decisionLog"></div>
-          </section>
-          <section>
-            <h2>Relatorio QA</h2>
-            <div id="qaLog"></div>
-          </section>
-        </div>
-      </section>
-      <section id="registro" class="tab">
-        <form id="form">
-          <textarea name="description" required>Defeito dimensional na linha 4.</textarea>
-          <input name="lot_code" value="LOTE-4521" required />
-          <input name="responsible" value="Carla Mendes" required />
-          <select name="shift"><option>B</option><option>A</option><option>C</option></select>
-          <input name="equipment" value="INJ-04" required />
-          <input name="line" value="4" required />
-          <button type="submit">Registrar</button>
-        </form>
-        <p id="message"></p>
-        <div id="records"></div>
-      </section>
-      <section id="causa" class="tab">
-        <select id="recordSelect"></select>
-        <div id="analysis"></div>
-      </section>
-      <section id="lote" class="tab">
-        <form id="lotForm"><input name="lot" value="LOTE-4521" /><button>Consultar</button></form>
-        <div id="trace"></div>
-      </section>
-    </main>
-    <script src="/app.js"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Não Conformidade</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topo">
+  <h1>Não Conformidades</h1>
+</header>
+
+<main class="conteudo">
+  <nav class="abas" aria-label="Navegação principal">
+    <button type="button" class="aba aba-ativa" data-tela="tela-formulario">Registrar</button>
+    <button type="button" class="aba" data-tela="tela-lista">Listagem</button>
+    <button type="button" class="aba" data-tela="tela-lote">Rastreabilidade</button>
+  </nav>
+
+  <section id="tela-formulario" class="tela">
+    <div id="mensagem-erro" class="mensagem mensagem-erro" hidden role="alert"></div>
+    <div id="mensagem-sucesso" class="mensagem mensagem-sucesso" hidden role="status"></div>
+
+    <form id="form-nc" novalidate>
+      <div class="campo">
+        <label for="descricao">Descrição do defeito *</label>
+        <textarea id="descricao" name="descricao" rows="4" placeholder="Descreva o problema encontrado"></textarea>
+      </div>
+
+      <div class="campo">
+        <label for="linha_equipamento">Linha/Equipamento *</label>
+        <select id="linha_equipamento" name="linha_equipamento">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label for="lote">Lote envolvido *</label>
+        <input type="text" id="lote" name="lote" placeholder="Ex.: LOTE-123">
+      </div>
+
+      <div class="campo">
+        <label for="turno">Turno *</label>
+        <select id="turno" name="turno">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label for="responsavel">Responsável *</label>
+        <input type="text" id="responsavel" name="responsavel" list="lista-responsaveis" placeholder="Nome do responsável">
+        <datalist id="lista-responsaveis"></datalist>
+      </div>
+
+      <button type="submit" class="botao-primario">Registrar não conformidade</button>
+    </form>
+  </section>
+
+  <section id="tela-lista" class="tela" hidden>
+    <button type="button" id="botao-atualizar" class="botao-secundario">Atualizar lista</button>
+    <div id="lista-registros" class="lista-registros">
+      <p class="lista-vazia">Nenhuma não conformidade registrada ainda.</p>
+    </div>
+  </section>
+
+  <section id="tela-lote" class="tela" hidden>
+    <form id="form-busca-lote" novalidate>
+      <div class="campo">
+        <label for="busca-lote">Código do lote</label>
+        <input type="text" id="busca-lote" name="busca-lote" list="lista-lotes" placeholder="Ex.: LOTE-100">
+        <datalist id="lista-lotes"></datalist>
+      </div>
+      <button type="submit" class="botao-primario">Buscar lote</button>
+    </form>
+
+    <div id="mensagem-lote-erro" class="mensagem mensagem-erro" hidden role="alert"></div>
+
+    <div id="resultado-lote" hidden>
+      <article class="registro-card">
+        <h3>Dados do lote</h3>
+        <dl id="detalhes-lote"></dl>
+      </article>
+
+      <article class="registro-card">
+        <h3>Lotes correlatos</h3>
+        <div id="lista-correlatos" class="lista-registros"></div>
+      </article>
+
+      <article class="registro-card">
+        <h3>Não conformidades associadas</h3>
+        <div id="lista-nc-lote" class="lista-registros"></div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
 </html>
