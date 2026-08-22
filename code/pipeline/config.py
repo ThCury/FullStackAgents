@@ -8,14 +8,21 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+PIPELINE_ROOT = Path(__file__).resolve().parent
+
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    # Caminho explícito (em vez de load_dotenv() sem argumento): sem isso,
+    # python-dotenv resolve o .env a partir do frame de quem chamou ou, na
+    # falta de um frame com arquivo real, do cwd do processo. No Windows, o
+    # worker do `uvicorn --reload` sobe via multiprocessing em modo spawn, que
+    # não tem um __main__.__file__ real - dotenv cai pro cwd (`code/`) e nunca
+    # acha `code/pipeline/.env`, que é uma subpasta, não um ancestral.
+    load_dotenv(PIPELINE_ROOT / ".env")
 except ImportError:
     pass
 
-PIPELINE_ROOT = Path(__file__).resolve().parent
 CODE_ROOT = PIPELINE_ROOT.parent
 APP_ROOT = CODE_ROOT / "app"
 ARTIFACTS_DIR = PIPELINE_ROOT / "artifacts"
