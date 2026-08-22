@@ -9,7 +9,7 @@ from ..config import QA_MODEL
 from ..tools import file_tools, test_tools
 from ..tools.schemas import QA_TOOLS
 from .base_agent import BaseAgent
-from .utils import extract_json
+from .utils import extract_json, looks_like_json
 
 SYSTEM_PROMPT = """\
 Você é o QA de um squad autônomo de agentes de software. Você intercepta cada
@@ -83,7 +83,18 @@ class QAAgent(BaseAgent):
         decision = state["decision_log"][-1]
 
         user = self._build_prompt(story, decision)
-        raw, _transcript = self.call_with_tools(user, QA_TOOLS, self._execute_tool, max_iterations=15)
+        raw, _transcript = self.call_with_tools(
+            user,
+            QA_TOOLS,
+            self._execute_tool,
+            max_iterations=15,
+            validate_final=looks_like_json,
+            invalid_final_message=(
+                "Sua última resposta não continha o JSON de veredito esperado. "
+                "Responda AGORA somente com o objeto JSON especificado nas "
+                "instruções, sem texto antes ou depois e sem chamar ferramentas."
+            ),
+        )
         result = extract_json(raw)
         result["story_id"] = story["id"]
         result.setdefault("test_cases", [])

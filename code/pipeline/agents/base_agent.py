@@ -57,15 +57,32 @@ class BaseAgent:
         system: str | None = None,
         max_iterations: int = config.MAX_TOOL_ITERATIONS,
         max_tokens: int = 4096,
+        validate_final: Callable[[str], bool] | None = None,
+        invalid_final_message: str = (
+            "Sua última resposta não veio no formato esperado. Responda agora "
+            "apenas com o conteúdo solicitado, exatamente como instruído, sem "
+            "chamar ferramentas."
+        ),
     ) -> tuple[str, list[dict]]:
         """Loop agentic: chama o modelo, executa tool calls, repete até obter
         uma resposta final em texto (sem tool_use) ou atingir max_iterations.
+
+        `validate_final`, se informado, decide se o texto final "conta" como
+        resposta válida (ex: contém um JSON parseável). Quando o modelo
+        termina o turno sem tool_use mas com um texto vazio ou que falha na
+        validação - o que acontece ocasionalmente após uma sequência longa de
+        tool calls, seja com conteúdo vazio ou com prosa em vez do formato
+        pedido -, em vez de devolver esse texto (o que quebraria o parsing
+        downstream e mataria o pipeline inteiro) pedimos explicitamente para
+        tentar de novo, com orçamento limitado de tentativas.
 
         Retorna (texto_final, transcript) onde transcript é a lista de passos
         (texto intermediário + chamadas de ferramenta) para fins de auditoria.
         """
         messages: list[dict[str, Any]] = [{"role": "user", "content": user}]
         transcript: list[dict] = []
+        invalid_retries = 0
+        max_invalid_retries = 2
 
         for _ in range(max_iterations):
             resp = self.client.messages.create(
@@ -84,7 +101,17 @@ class BaseAgent:
                 transcript.append({"step": "assistant_text", "content": "\n".join(texts)})
 
             if not tool_uses:
-                return "\n".join(texts), transcript
+                final_text = "\n".join(texts).strip()
+                is_valid = bool(final_text) and (validate_final is None or validate_final(final_text))
+                if is_valid:
+                    return final_text, transcript
+
+                invalid_retries += 1
+                transcript.append({"step": "invalid_final_retry", "attempt": invalid_retries})
+                if invalid_retries > max_invalid_retries:
+                    return final_text, transcript
+                messages.append({"role": "user", "content": invalid_final_message})
+                continue
 
             tool_results = []
             for tu in tool_uses:

@@ -29,3 +29,13 @@ def extract_json(text: str):
                 except json.JSONDecodeError:
                     continue
     raise ValueError(f"Não foi possível extrair JSON válido da resposta:\n{text[:500]}")
+
+
+def looks_like_json(text: str) -> bool:
+    """Versão booleana de `extract_json`, para usar como validação de
+    resposta final em `BaseAgent.call_with_tools` (sem lançar exceção)."""
+    try:
+        extract_json(text)
+        return True
+    except ValueError:
+        return False

@@ -7,7 +7,7 @@ from ..config import PO_MODEL
 from ..tools import file_tools
 from ..tools.schemas import READ_ONLY_TOOLS
 from .base_agent import BaseAgent
-from .utils import extract_json
+from .utils import extract_json, looks_like_json
 
 SYSTEM_PROMPT = """\
 Você é o Product Owner de um squad autônomo de agentes de software. Você é o
@@ -66,7 +66,18 @@ class POAgent(BaseAgent):
             f"Brief técnico enriquecido pelo Analista:\n\n{state['enriched_brief']}\n\n"
             "Gere o backlog de user stories em JSON conforme instruído."
         )
-        raw, _transcript = self.call_with_tools(user, READ_ONLY_TOOLS, self._execute_tool)
+        raw, _transcript = self.call_with_tools(
+            user,
+            READ_ONLY_TOOLS,
+            self._execute_tool,
+            validate_final=looks_like_json,
+            invalid_final_message=(
+                "Sua última resposta não continha o array JSON de backlog "
+                "esperado. Responda AGORA somente com o array JSON especificado "
+                "nas instruções, sem texto antes ou depois e sem chamar "
+                "ferramentas."
+            ),
+        )
         backlog = extract_json(raw)
 
         self.write_json_artifact("backlog.json", backlog)

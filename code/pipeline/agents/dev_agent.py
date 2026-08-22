@@ -11,7 +11,7 @@ from ..config import DEV_MODEL
 from ..tools import file_tools, test_tools
 from ..tools.schemas import DEV_TOOLS
 from .base_agent import BaseAgent
-from .utils import extract_json
+from .utils import extract_json, looks_like_json
 
 SYSTEM_PROMPT = """\
 Você é o Desenvolvedor de um squad autônomo de agentes de software. Você
@@ -95,7 +95,18 @@ class DevAgent(BaseAgent):
                 feedback = last_qa["feedback"]
 
         user = self._build_prompt(story, feedback)
-        raw, _transcript = self.call_with_tools(user, DEV_TOOLS, self._execute_tool, max_iterations=20)
+        raw, _transcript = self.call_with_tools(
+            user,
+            DEV_TOOLS,
+            self._execute_tool,
+            max_iterations=20,
+            validate_final=looks_like_json,
+            invalid_final_message=(
+                "Sua última resposta não continha o JSON de decisão esperado. "
+                "Responda AGORA somente com o objeto JSON especificado nas "
+                "instruções, sem texto antes ou depois e sem chamar ferramentas."
+            ),
+        )
         decision = extract_json(raw)
         decision["story_id"] = story["id"]
         decision.setdefault("files_changed", [])
