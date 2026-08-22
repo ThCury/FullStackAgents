@@ -11,12 +11,13 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from domain.enums import AgentRole
-from domain.errors import RunNotFound
+from domain.errors import NoCheckpointAvailable, RunNotFound
 from interfaces.http.deps import (
     ApproveBudgetDep,
     ContainerDep,
     QueryRunDep,
     ResumeRunDep,
+    RetryRunDep,
     StartRunDep,
 )
 
@@ -104,6 +105,37 @@ async def resume_run(
     except RunNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     return run.model_dump(mode="json")
+
+
+@router.post("/{run_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+async def retry_run(run_id: str, use_case: RetryRunDep) -> dict[str, Any]:
+    """Retoma um run que FALHOU, do último nó concluído.
+
+    Não é o mesmo que `/resume`: aquele responde a um `interrupt()` (pausa
+    proposital esperando decisão humana); este recupera de falha (estouro de
+    `max_tokens`, rate limit, queda de rede).
+
+    O que já foi feito não é refeito: story aceita continua aceita, código
+    escrito continua escrito, token gasto não é gasto de novo.
+    """
+    try:
+        run = await use_case.execute(run_id)
+    except RunNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except NoCheckpointAvailable as exc:
+        # 409, não 404: o run existe, mas não há estado para retomar.
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return run.model_dump(mode="json")
+
+
+@router.get("/{run_id}/resumable")
+async def is_resumable(run_id: str, use_case: RetryRunDep) -> dict[str, Any]:
+    """O run pode ser retomado?
+
+    O Console usa isto para só oferecer o botão quando ele funciona — melhor que
+    deixar o usuário clicar e tomar um 409.
+    """
+    return {"run_id": run_id, "resumable": await use_case.has_checkpoint(run_id)}
 
 
 @router.post("/{run_id}/budget")

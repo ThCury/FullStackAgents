@@ -114,8 +114,15 @@ class Settings(BaseSettings):
         por agente.
         """
         return {
-            AgentRole.BRIEFING_ANALYST: AgentBudgetProfile(effort=Effort.MEDIUM, max_tokens=16_000),
-            AgentRole.PRODUCT_OWNER: AgentBudgetProfile(effort=Effort.HIGH, max_tokens=32_000),
-            AgentRole.DEVELOPER: AgentBudgetProfile(effort=Effort.XHIGH, max_tokens=64_000),
-            AgentRole.QA: AgentBudgetProfile(effort=Effort.MEDIUM, max_tokens=32_000),
+            # `max_tokens` generoso de proposito: em claude-opus-5 o thinking
+            # adaptativo consome o MESMO teto da saida, e um teto justo faz o JSON
+            # sair cortado (`stop_reason=max_tokens`) — foi exatamente o que
+            # derrubou o primeiro run real com 16k no Analyst.
+            #
+            # Teto alto NAO encarece: a cobranca e por token gerado. O que controla
+            # custo aqui e o `effort`, nao o `max_tokens`.
+            AgentRole.BRIEFING_ANALYST: AgentBudgetProfile(effort=Effort.MEDIUM, max_tokens=32_000),
+            AgentRole.PRODUCT_OWNER: AgentBudgetProfile(effort=Effort.HIGH, max_tokens=64_000),
+            AgentRole.DEVELOPER: AgentBudgetProfile(effort=Effort.XHIGH, max_tokens=96_000),
+            AgentRole.QA: AgentBudgetProfile(effort=Effort.MEDIUM, max_tokens=64_000),
         }

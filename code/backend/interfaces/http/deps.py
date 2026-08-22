@@ -15,6 +15,7 @@ from application.use_cases.query_run import QueryRunUseCase
 from application.use_cases.run_squad import (
     ApproveBudgetUseCase,
     ResumeRunUseCase,
+    RetryRunUseCase,
     StartRunUseCase,
 )
 from factory.container import Container
@@ -51,6 +52,15 @@ def get_resume_run(container: ContainerDep) -> ResumeRunUseCase:
     )
 
 
+def get_retry_run(container: ContainerDep) -> RetryRunUseCase:
+    return RetryRunUseCase(
+        runs=container.repositories.runs,
+        events=container.events,
+        clock=container.clock,
+        graph=container.graph,
+    )
+
+
 def get_approve_budget(container: ContainerDep) -> ApproveBudgetUseCase:
     return ApproveBudgetUseCase(runs=container.repositories.runs, meter=container.meter)
 
@@ -71,5 +81,6 @@ def get_query_run(container: ContainerDep) -> QueryRunUseCase:
 
 StartRunDep = Annotated[StartRunUseCase, Depends(get_start_run)]
 ResumeRunDep = Annotated[ResumeRunUseCase, Depends(get_resume_run)]
+RetryRunDep = Annotated[RetryRunUseCase, Depends(get_retry_run)]
 ApproveBudgetDep = Annotated[ApproveBudgetUseCase, Depends(get_approve_budget)]
 QueryRunDep = Annotated[QueryRunUseCase, Depends(get_query_run)]

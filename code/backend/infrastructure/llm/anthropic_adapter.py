@@ -30,6 +30,7 @@ from typing import Any
 
 from anthropic import AsyncAnthropic
 
+from domain.errors import LLMRefused, LLMResponseInvalid, LLMResponseTruncated
 from domain.ports.llm import LLMRequest, LLMResponse
 from domain.value_objects import TokenUsage
 
@@ -65,10 +66,16 @@ class AnthropicAdapter:
             message = await self._client.messages.create(**params)
 
         latency_ms = int((time.perf_counter() - started) * 1000)
+
+        # Checar ANTES de tentar parsear. Sem isto, uma resposta truncada virava
+        # `JSONDecodeError: Unterminated string at char 21534` — erro que não diz
+        # nada a quem está diagnosticando, e que já custou um run de 16 minutos.
+        _assert_usable(message, request)
+
         raw_text = _first_text_block(message)
 
         return LLMResponse(
-            data=json.loads(raw_text),
+            data=_parse_json(raw_text, request),
             raw_text=raw_text,
             model=message.model,
             usage=_to_usage(message.usage),
@@ -116,6 +123,50 @@ class AnthropicAdapter:
         if request.cache_system:
             block["cache_control"] = {"type": "ephemeral"}
         return [block]
+
+
+def _assert_usable(message: Any, request: LLMRequest) -> None:
+    """Recusa resposta inutilizável com diagnóstico acionável.
+
+    `stop_reason` precisa ser inspecionado antes do conteúdo:
+
+    - `max_tokens` — a resposta foi **cortada**. Em `claude-opus-5` o thinking
+      adaptativo é ligado por padrão e consome o MESMO `max_tokens` da saída, então
+      um teto que parece folgado para o JSON pode ser todo consumido pelo
+      raciocínio. Aumentar `max_tokens` não encarece: a cobrança é por token
+      gerado, não pelo teto.
+    - `refusal` — classificador de segurança recusou. HTTP 200, conteúdo vazio.
+    """
+    stop_reason = getattr(message, "stop_reason", None)
+
+    if stop_reason == "max_tokens":
+        raise LLMResponseTruncated(
+            agent=request.agent.value,
+            max_tokens=request.max_tokens,
+            output_tokens=getattr(message.usage, "output_tokens", 0),
+        )
+
+    if stop_reason == "refusal":
+        details = getattr(message, "stop_details", None)
+        raise LLMRefused(
+            agent=request.agent.value,
+            category=getattr(details, "category", None) or "desconhecida",
+        )
+
+
+def _parse_json(raw_text: str, request: LLMRequest) -> dict[str, Any]:
+    """Parse com erro legível.
+
+    Com `stop_reason` já validado, um JSON inválido aqui é falha real do modelo,
+    não truncamento — e o trecho do texto ajuda a diagnosticar qual.
+    """
+    try:
+        parsed: dict[str, Any] = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise LLMResponseInvalid(
+            agent=request.agent.value, reason=str(exc), excerpt=raw_text[-300:]
+        ) from exc
+    return parsed
 
 
 def _strict_schema(schema: Any) -> Any:

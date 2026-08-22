@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from langgraph.checkpoint.memory import MemorySaver
 
 from agents.base import AgentDeps
 from agents.briefing_analyst import BriefingAnalystAgent
@@ -163,6 +164,10 @@ def squad(
         escalate=EscalateNode(repositories.messages, events, ids, clock, meter),
         integrate=IntegrateNode(workspace, meter, repositories.messages, events, ids, clock),
         max_rework=3,
+        # Com checkpointer, como em produção. Sem ele, `interrupt()` e retomada
+        # após falha não funcionam — e um teste que os exercita passaria a
+        # medir o vazio.
+        checkpointer=MemorySaver(),
     )
 
     return {
