@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from time import monotonic
+from uuid import uuid4
+
+from fullstack_agents.agents.product_owner.agent import ProductOwnerAgent
+from fullstack_agents.application.costs import CostCalculator
+from fullstack_agents.domain.models import Actor, CreateRunCommand, RunStatus, now_audit_time
+from fullstack_agents.domain.ports import RunRepository
+from fullstack_agents.pipeline.graph import ProductOwnerGraph
+
+
+class RunService:
+    def __init__(
+        self,
+        repository: RunRepository,
+        agent: ProductOwnerAgent,
+        cost_calculator: CostCalculator,
+        stream_persist_interval_ms: int,
+    ) -> None:
+        self._repository = repository
+        self._agent = agent
+        self._cost_calculator = cost_calculator
+        self._stream_persist_interval_ms = stream_persist_interval_ms
+        self._graph = ProductOwnerGraph(
+            repository=repository,
+            agent=agent,
+            cost_calculator=cost_calculator,
+            stream_persist_interval_ms=stream_persist_interval_ms,
+        )
+
+    def create(self, command: CreateRunCommand) -> dict:
+        run_id = f"run_{uuid4().hex}"
+        created_at = now_audit_time()
+        user = Actor(
+            type="user",
+            id=command.requested_by_id,
+            display_name=command.requested_by_name,
+        )
+        document = {
+            "_id": run_id,
+            "flow": "product_owner_v1",
+            "status": RunStatus.PENDING.value,
+            "requested_by": user.model_dump(),
+            "input": {
+                "content": command.prompt,
+                "recipient": {"id": "po", "role": "PRODUCT_OWNER"},
+                **created_at.model_dump(),
+            },
+            "audit": {
+                "next_sequence": 0,
+                "timeline": [],
+                "totals": self._cost_calculator.totals(0, 0, 0, 0).model_dump(),
+            },
+            "output": None,
+            **created_at.model_dump(),
+            "finished_at": None,
+            "error": None,
+            "version": 1,
+        }
+        self._repository.create(document)
+        self._append_event(
+            run_id,
+            "USER_PROMPT",
+            {
+                "from": user.model_dump(),
+                "to": {"type": "agent", "id": "po", "role": "PRODUCT_OWNER"},
+                "content": command.prompt,
+                "attempt": 1,
+            },
+        )
+        self._append_event(
+            run_id,
+            "FLOW_EVENT",
+            {
+                "event": "RUN_CREATED",
+                "from": user.model_dump(),
+                "to": {"type": "orchestrator", "id": "product_owner_graph"},
+                "state_before": None,
+                "state_after": RunStatus.PENDING.value,
+                "attempt": 1,
+                "approved": None,
+                "summary": "Prompt recebido e persistido antes da execução do PO.",
+            },
+        )
+        return self.get_or_raise(run_id)
+
+    def execute(self, run_id: str) -> None:
+        self._repository.mark_running(run_id)
+        self._append_event(
+            run_id,
+            "FLOW_EVENT",
+            {
+                "event": "FLOW_STARTED",
+                "from": {"type": "orchestrator", "id": "product_owner_graph"},
+                "to": {"type": "agent", "id": "po", "role": "PRODUCT_OWNER"},
+                "state_before": RunStatus.PENDING.value,
+                "state_after": RunStatus.RUNNING.value,
+                "attempt": 1,
+                "approved": None,
+                "summary": "Execução do agente Product Owner iniciada.",
+            },
+        )
+        run = self.get_or_raise(run_id)
+        try:
+            self._graph.invoke({"run_id": run_id, "user_prompt": run["input"]["content"]})
+        except Exception as error:  # the failure itself must become part of the audit trail
+            self._append_event(
+                run_id,
+                "FLOW_EVENT",
+                {
+                    "event": "AGENT_RESULT_REJECTED",
+                    "from": {"type": "agent", "id": "po", "role": "PRODUCT_OWNER"},
+                    "to": {"type": "orchestrator", "id": "product_owner_graph"},
+                    "state_before": RunStatus.RUNNING.value,
+                    "state_after": RunStatus.FAILED.value,
+                    "attempt": 1,
+                    "approved": False,
+                    "summary": str(error),
+                },
+            )
+            self._repository.fail_run(run_id, str(error))
+
+    def get_or_raise(self, run_id: str) -> dict:
+        document = self._repository.get(run_id)
+        if document is None:
+            raise KeyError(f"Run não encontrado: {run_id}")
+        return document
+
+    def _append_event(self, run_id: str, item_type: str, fields: dict) -> None:
+        time = now_audit_time()
+        self._repository.append_timeline(
+            run_id,
+            {"sequence": self._repository.reserve_sequence(run_id), "type": item_type, **fields, **time.model_dump()},
+        )
+

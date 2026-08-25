@@ -1,0 +1,2 @@
+"""Entradas HTTP do backend."""
+
