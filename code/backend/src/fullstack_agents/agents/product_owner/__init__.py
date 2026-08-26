@@ -1,2 +1,0 @@
-"""Agente Product Owner."""
-

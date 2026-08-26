@@ -13,6 +13,11 @@ fluxo auditável.
 4. [Plano do backend inicial](plano-backend-po.md) — PO com LangGraph, sem DEV/QA.
 5. [ADRs](ADR/README.md) — por que as principais decisões foram tomadas.
 
+## Testar a API
+
+A [coleção Postman](Colection/README.md) contém as requests do backend e usa a
+variável `{{base_url}}` para o endereço da API.
+
 ## Escopo do MVP
 
 - três papéis obrigatórios: Product Owner, Developer e QA;

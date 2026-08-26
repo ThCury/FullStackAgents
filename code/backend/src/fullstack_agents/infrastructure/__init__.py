@@ -1,2 +1,0 @@
-"""Adaptadores concretos de infraestrutura."""
-

@@ -1,2 +1,0 @@
-"""Agentes do squad."""
-

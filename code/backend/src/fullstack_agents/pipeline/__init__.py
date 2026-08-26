@@ -1,2 +1,0 @@
-"""Grafo LangGraph do squad."""
-

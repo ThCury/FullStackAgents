@@ -1,11 +1,16 @@
 from fastapi.testclient import TestClient
 
-from fullstack_agents.config import Settings
-from fullstack_agents.main import create_app
+from config import AGENT_LLM_PROFILES, AgentLLMProfile, Settings
+from main import create_app
 
 
-def test_health_and_po_run() -> None:
-    app = create_app(Settings(persistence="memory", llm_mode="fake"))
+def test_health_and_po_run(monkeypatch) -> None:
+    monkeypatch.setitem(
+        AGENT_LLM_PROFILES,
+        "PRODUCT_OWNER",
+        AgentLLMProfile(provider="fake", model="fake-po-v1"),
+    )
+    app = create_app(Settings())
     with TestClient(app) as client:
         health = client.get("/health")
         assert health.status_code == 200
@@ -15,4 +20,3 @@ def test_health_and_po_run() -> None:
         result = client.get(f"/runs/{run_id}/result")
         assert result.status_code == 200
         assert result.json()["user_stories"]
-

@@ -1,9 +1,9 @@
-from fullstack_agents.agents.product_owner.agent import ProductOwnerAgent
-from fullstack_agents.application.costs import CostCalculator
-from fullstack_agents.application.run_service import RunService
-from fullstack_agents.domain.models import CreateRunCommand
-from fullstack_agents.infrastructure.llm import FakeStreamingLLM
-from fullstack_agents.infrastructure.memory_repository import InMemoryRunRepository
+from agents.product_owner.agent import ProductOwnerAgent
+from application.costs import CostCalculator
+from application.run_service import RunService
+from domain.models.create_run_command import CreateRunCommand
+from infrastructure.llm import FakeStreamingLLM
+from infrastructure.memory_repository import InMemoryRunRepository
 
 
 def make_service() -> RunService:
@@ -41,3 +41,15 @@ def test_po_result_and_audit_are_persisted() -> None:
     assert call["usage"]["total_tokens"] > 0
     assert call["latency_ms"] >= 0
 
+
+def test_gemini_can_be_selected_per_agent_config(monkeypatch) -> None:
+    from config import AGENT_LLM_PROFILES, AgentLLMProfile
+
+    monkeypatch.setitem(
+        AGENT_LLM_PROFILES,
+        "PRODUCT_OWNER",
+        AgentLLMProfile(provider="gemini", model="gemini-2.5-flash"),
+    )
+    profile = ProductOwnerAgent.llm_profile()
+    assert profile.provider == "gemini"
+    assert profile.model == "gemini-2.5-flash"

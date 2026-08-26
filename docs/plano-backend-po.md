@@ -57,42 +57,23 @@ e registra a tentativa no fluxo.
 code/backend/
 ├── pyproject.toml
 ├── .env.example
-├── src/
-│   └── fullstack_agents/
-│       ├── main.py                    # composição FastAPI
-│       ├── config.py                  # settings e variáveis de ambiente
-│       ├── domain/
-│       │   ├── entities/              # Run agregado e itens da audit.timeline
-│       │   ├── enums.py               # estados, papéis e tipos de evento
-│       │   ├── schemas/               # ProductBacklog e contratos do PO
-│       │   └── ports/                 # Protocols de LLM, auditoria e repositórios
-│       ├── application/
-│       │   ├── use_cases/
-│       │   │   ├── start_po_run.py    # cria e executa um run
-│       │   │   ├── get_run.py
-│       │   │   └── get_audit_trail.py
-│       │   └── services/              # AuditRecorder e CostCalculator
-│       ├── agents/
-│       │   └── product_owner/
-│       │       ├── agent.py           # adapta contrato do PO ao gateway
-│       │       └── system_prompt.md   # versionado junto ao código
-│       ├── pipeline/
-│       │   ├── state.py               # estado mínimo do LangGraph
-│       │   ├── graph.py               # grafo de um nó PO
-│       │   └── nodes.py               # nó de planejamento
-│       ├── infrastructure/
-│       │   ├── llm/                   # adaptador real, fake e gateway auditável
-│       │   ├── mongo/                 # cliente, coleção runs, índices e repositório
-│       │   └── clock.py               # UTC + America/Sao_Paulo em um único ponto
-│       └── interfaces/
-│           └── http/
-│               ├── router_runs.py
-│               ├── router_audit.py
-│               └── dependencies.py
+├── main.py                        # composição FastAPI
+├── config.py                      # perfis de modelo e configurações versionadas
+├── container.py                   # composição das dependências
+├── agents/
+│   └── product_owner/
+│       ├── agent.py               # PO escolhe seu perfil de LLM
+│       └── system_prompt.md       # prompt versionado
+├── application/                   # casos de uso e cálculo de custo
+├── domain/
+│   ├── models/                    # um arquivo Pydantic por conceito de domínio
+│   └── ports/                     # contratos para LLM e repositório
+├── pipeline/                      # grafo LangGraph do PO
+├── infrastructure/                # LLMs, MongoDB, memória e relógio
+├── routes/                        # endpoints por recurso: runs.py, health.py
 └── tests/
-    ├── unit/
-    ├── integration/
-    └── e2e/
+    ├── test_api.py
+    └── test_po_flow.py
 ```
 
 `domain/` não importa FastAPI, LangGraph, PyMongo/Motor nem SDK de LLM. LangGraph
@@ -110,6 +91,20 @@ fica em `pipeline/`; MongoDB e o provedor são detalhes em `infrastructure/`.
 
 O primeiro `POST` pode executar o grafo em tarefa assíncrona local. Uma fila só
 deve ser avaliada após o fluxo e a auditoria estarem estáveis.
+
+## Configuração inicial do PO com Gemini
+
+O arquivo `.env` contém somente a chave:
+
+```dotenv
+GEMINI_API_KEY=sua_chave
+```
+
+Provider e modelo do PO são decisões versionadas em `code/backend/config.py`,
+na constante `AGENT_LLM_PROFILES`. Hoje o PO escolhe `gemini-2.5-flash`. Quando DEV
+e QA forem adicionados, cada um receberá outro perfil nessa mesma lista, sem alterar
+o `.env`. A API registra provider, modelo e demais parâmetros no item `LLM_CALL` da
+auditoria, mas nunca registra a chave.
 
 ## 5. Plano de implementação
 

@@ -1,0 +1,88 @@
+{
+  "info": {
+    "_postman_id": "d27e55ad-337d-4ae6-8e18-fd36c28fc6e1",
+    "name": "FullStack Agents - PO API",
+    "description": "Requests do backend inicial: Product Owner com LangGraph e auditoria.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Runs",
+      "item": [
+        {
+          "name": "Criar run do PO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set('run_id', response.run_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Quero criar um portal para clientes consultarem suas apólices.\",\n  \"requested_by_id\": \"thiago\",\n  \"requested_by_name\": \"Thiago\"\n}"
+            },
+            "url": "{{base_url}}/runs"
+          }
+        },
+        {
+          "name": "Consultar status do run",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/runs/{{run_id}}"
+          }
+        },
+        {
+          "name": "Consultar resultado do PO",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/runs/{{run_id}}/result"
+          }
+        },
+        {
+          "name": "Consultar auditoria do run",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/runs/{{run_id}}/audit"
+          }
+        }
+      ]
+    }
+  ]
+}

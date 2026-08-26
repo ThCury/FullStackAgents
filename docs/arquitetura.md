@@ -56,7 +56,7 @@ stateDiagram-v2
 ## 3. Camadas e dependências
 
 ```text
-interfaces/       HTTP, CLI e workers
+routes/           entradas HTTP organizadas por recurso
     ↓
 application/      casos de uso e portas
     ↓
@@ -283,7 +283,7 @@ code/backend/
 │   ├── project_source/  # snapshot/cópia de projeto existente
 │   ├── workspace/       # arquivos por run
 │   └── execution/       # sandbox de build/testes
-├── interfaces/          # FastAPI e worker
+├── routes/              # FastAPI, por exemplo runs.py e health.py
 └── tests/               # unit, integration e end-to-end
 ```
 
