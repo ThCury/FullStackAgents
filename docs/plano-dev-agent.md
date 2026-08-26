@@ -87,12 +87,10 @@ precisa redescobrir o projeto inteiro a cada execução.
 ### Stack do template — decisão pendente
 
 Antes da implementação, devemos aprovar uma stack única para `login-todo`.
-Recomendação inicial: frontend React + TypeScript, backend FastAPI + Python e
-SQLite no desenvolvimento. Isso mantém um projeto realmente fullstack, reaproveita
-Python, reduz infraestrutura da aplicação de referência e ainda permite dois
-containers (`frontend` e `backend`) via Docker Compose. A escolha final deve ser
-registrada em uma ADR antes de criar o template; o DEV não escolhe a stack por conta
-própria.
+Stack aprovada: frontend React + TypeScript, backend FastAPI + Python em MVC e
+PostgreSQL. Isso mantém um projeto realmente fullstack, reaproveita Python e usa
+três containers (`frontend`, `backend` e `postgres`) via Docker Compose. O DEV não
+escolhe a stack por conta própria.
 
 ## 5. Fluxo do DEV para projeto novo
 

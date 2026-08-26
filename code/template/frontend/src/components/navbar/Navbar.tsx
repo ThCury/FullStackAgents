@@ -1,10 +1,10 @@
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { AppBar, Box, IconButton, Toolbar, Typography } from '@mui/material'
 
-import { PaletteSelector } from '../palette-selector/PaletteSelector'
+type NavbarProps = { name: string; email: string; onOpenProfile: () => void; onLogout: () => void }
 
-type NavbarProps = { email: string; onLogout: () => void }
-
-export function Navbar({ email, onLogout }: NavbarProps) {
-  return <AppBar position="static" elevation={0}><Toolbar><Typography variant="h6" sx={{ flexGrow: 1 }}>Minhas tarefas</Typography><Box sx={{ display: { xs: 'none', sm: 'block' }, mr: 2 }}><PaletteSelector /></Box><Typography variant="body2" sx={{ mr: 1 }}>{email}</Typography><IconButton color="inherit" onClick={onLogout} aria-label="Sair"><LogoutIcon /></IconButton></Toolbar></AppBar>
+export function Navbar({ name, email, onOpenProfile, onLogout }: NavbarProps) {
+  const username = name.trim() || email
+  return <AppBar position="static" elevation={0}><Toolbar><Typography variant="h6" sx={{ flexGrow: 1 }}>Minhas tarefas</Typography><Box sx={{ display: { xs: 'none', md: 'block' }, textAlign: 'right', mr: 1 }}><Typography variant="body2">{username}</Typography></Box><IconButton color="inherit" onClick={onOpenProfile} aria-label="Abrir perfil"><AccountCircleIcon /></IconButton><IconButton color="inherit" onClick={onLogout} aria-label="Sair"><LogoutIcon /></IconButton></Toolbar></AppBar>
 }
