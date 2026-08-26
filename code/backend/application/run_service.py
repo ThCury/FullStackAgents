@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from agents.coder.agent import CoderAgent
+from agents.developer.agent import DeveloperAgent
 from agents.product_owner.agent import ProductOwnerAgent
 from application.costs import CostCalculator
 from domain.models.actor import Actor
@@ -9,24 +11,29 @@ from domain.models.audit_time import now_audit_time
 from domain.models.create_run_command import CreateRunCommand
 from domain.models.run_status import RunStatus
 from domain.ports.run_repository import RunRepository
-from pipeline.graph import ProductOwnerGraph
+from domain.ports.workspace_manager import WorkspaceManager
+from pipeline.graph import FullstackGraph
 
 
 class RunService:
     def __init__(
         self,
         repository: RunRepository,
-        agent: ProductOwnerAgent,
+        product_owner: ProductOwnerAgent,
+        developer: DeveloperAgent,
+        coder: CoderAgent,
+        workspace_manager: WorkspaceManager,
         cost_calculator: CostCalculator,
         stream_persist_interval_ms: int,
     ) -> None:
         self._repository = repository
-        self._agent = agent
         self._cost_calculator = cost_calculator
-        self._stream_persist_interval_ms = stream_persist_interval_ms
-        self._graph = ProductOwnerGraph(
+        self._graph = FullstackGraph(
             repository=repository,
-            agent=agent,
+            product_owner=product_owner,
+            developer=developer,
+            coder=coder,
+            workspace_manager=workspace_manager,
             cost_calculator=cost_calculator,
             stream_persist_interval_ms=stream_persist_interval_ms,
         )
@@ -41,12 +48,13 @@ class RunService:
         )
         document = {
             "_id": run_id,
-            "flow": "product_owner_v1",
+            "flow": "fullstack_po_dev_v1",
             "status": RunStatus.PENDING.value,
             "requested_by": user.model_dump(),
             "input": {
                 "content": command.prompt,
                 "recipient": {"id": "po", "role": "PRODUCT_OWNER"},
+                "project_name": command.project_name,
                 **created_at.model_dump(),
             },
             "audit": {
@@ -55,6 +63,7 @@ class RunService:
                 "totals": self._cost_calculator.totals(0, 0, 0, 0).model_dump(),
             },
             "output": None,
+            "artifacts": [],
             **created_at.model_dump(),
             "finished_at": None,
             "error": None,
@@ -77,12 +86,15 @@ class RunService:
             {
                 "event": "RUN_CREATED",
                 "from": user.model_dump(),
-                "to": {"type": "orchestrator", "id": "product_owner_graph"},
+                "to": {"type": "orchestrator", "id": "fullstack_graph"},
                 "state_before": None,
                 "state_after": RunStatus.PENDING.value,
                 "attempt": 1,
                 "approved": None,
-                "summary": "Prompt recebido e persistido antes da execução do PO.",
+                "summary": (
+                    "Prompt recebido e persistido antes da execução do fluxo "
+                    "PO → DEV → CODER."
+                ),
             },
         )
         return self.get_or_raise(run_id)
@@ -94,13 +106,13 @@ class RunService:
             "FLOW_EVENT",
             {
                 "event": "FLOW_STARTED",
-                "from": {"type": "orchestrator", "id": "product_owner_graph"},
+                "from": {"type": "orchestrator", "id": "fullstack_graph"},
                 "to": {"type": "agent", "id": "po", "role": "PRODUCT_OWNER"},
                 "state_before": RunStatus.PENDING.value,
                 "state_after": RunStatus.RUNNING.value,
                 "attempt": 1,
                 "approved": None,
-                "summary": "Execução do agente Product Owner iniciada.",
+                "summary": "Execução do fluxo PO → DEV → CODER iniciada.",
             },
         )
         run = self.get_or_raise(run_id)
@@ -113,7 +125,7 @@ class RunService:
                 {
                     "event": "AGENT_RESULT_REJECTED",
                     "from": {"type": "agent", "id": "po", "role": "PRODUCT_OWNER"},
-                    "to": {"type": "orchestrator", "id": "product_owner_graph"},
+                    "to": {"type": "orchestrator", "id": "fullstack_graph"},
                     "state_before": RunStatus.RUNNING.value,
                     "state_after": RunStatus.FAILED.value,
                     "attempt": 1,

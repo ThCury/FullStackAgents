@@ -1,16 +1,31 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from config import AGENT_LLM_PROFILES, AgentLLMProfile, BackendConfig, Settings
 from main import create_app
 
 
-def test_health_and_po_run(monkeypatch) -> None:
+def test_health_and_po_run(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setitem(
         AGENT_LLM_PROFILES,
         "PRODUCT_OWNER",
         AgentLLMProfile(provider="fake", model="fake-po-v1"),
     )
-    app = create_app(Settings(), BackendConfig(persistence="memory"))
+    monkeypatch.setitem(
+        AGENT_LLM_PROFILES,
+        "DEVELOPER",
+        AgentLLMProfile(provider="fake", model="fake-dev-v1"),
+    )
+    monkeypatch.setitem(
+        AGENT_LLM_PROFILES,
+        "CODER",
+        AgentLLMProfile(provider="fake", model="fake-coder-v1"),
+    )
+    app = create_app(
+        Settings(dev_workspace_root=tmp_path),
+        BackendConfig(persistence="memory"),
+    )
     with TestClient(app) as client:
         health = client.get("/health")
         assert health.status_code == 200
@@ -32,6 +47,7 @@ def test_health_and_po_run(monkeypatch) -> None:
         full = client.get(f"/runs/{run_id}?dataset=full")
         assert full.status_code == 200
         assert full.json()["audit"]["timeline"]
+        assert len(full.json()["artifacts"]) == 3
         result = client.get(f"/runs/{run_id}/result")
         assert result.status_code == 200
         assert result.json()["user_stories"]

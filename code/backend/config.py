@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field
@@ -28,12 +29,22 @@ class BackendConfig:
     input_token_price_per_million: Decimal = Decimal("0")
     output_token_price_per_million: Decimal = Decimal("0")
     price_version: str = "local-config-v1"
+    template_root: Path = Path(__file__).resolve().parents[1] / "template"
+    max_tool_iterations: int = 24
 
 
 # Modelos são uma decisão versionada no código, não uma configuração secreta.
-# Para trocar o PO, altere somente este perfil. DEV e QA entrarão nesta mesma lista.
+# Para trocar um agente, altere somente o perfil dele. QA entrará nesta mesma lista.
 AGENT_LLM_PROFILES: dict[str, AgentLLMProfile] = {
     "PRODUCT_OWNER": AgentLLMProfile(
+        provider="gemini",
+        model="gemini-3.6-flash",
+    ),
+    "DEVELOPER": AgentLLMProfile(
+        provider="gemini",
+        model="gemini-3.6-flash",
+    ),
+    "CODER": AgentLLMProfile(
         provider="gemini",
         model="gemini-3.6-flash",
     ),
@@ -50,7 +61,7 @@ def model_for_agent(role: str) -> AgentLLMProfile:
 
 
 class Settings(BaseSettings):
-    """Somente segredos: este é o conteúdo permitido no .env."""
+    """Segredos e caminhos locais que variam por máquina."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -62,6 +73,7 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("OPENAI_API_KEY", "SQUAD_OPENAI_API_KEY"),
     )
+    dev_workspace_root: Path | None = Field(default=None, validation_alias="DEV_WORKSPACE_ROOT")
 
 
 @lru_cache

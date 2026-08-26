@@ -7,10 +7,15 @@
 
 ```dotenv
 GEMINI_API_KEY=sua_chave
+
+# Pasta local exclusiva onde o DEV criará projetos por run.
+DEV_WORKSPACE_ROOT=C:\FullStackAgents\workspaces
 ```
 
-O provider e modelo do PO são versionados em
-`code/backend/config.py`, no mapa `AGENT_LLM_PROFILES`.
+O provider e modelo de cada agente são versionados em
+`code/backend/config.py`, no mapa `AGENT_LLM_PROFILES`. O `.env` contém apenas
+segredos e caminhos locais: `DEV_WORKSPACE_ROOT` não deve apontar para a raiz de
+um repositório existente, pois o DEV cria uma pasta nova para cada run.
 
 ## Banco de dados — MongoDB
 
@@ -88,7 +93,10 @@ python -m uvicorn main:app --reload --host 127.0.0.1 --port 8010
 Com a API em execução, envie o prompt pelo PowerShell:
 
 ```powershell
-$body = @{ prompt = "Quero criar um portal para clientes consultarem suas apólices." } | ConvertTo-Json -Compress
+$body = @{
+  prompt = "Quero criar um portal para clientes consultarem suas apólices."
+  project_name = "portal-clientes"
+} | ConvertTo-Json -Compress
 $bodyUtf8 = [System.Text.Encoding]::UTF8.GetBytes($body)
 
 Invoke-RestMethod `
@@ -115,6 +123,30 @@ timeline. O endpoint `/audit` também retorna somente a auditoria completa.
 
 `GET /runs` lista todas as runs de forma ainda mais enxuta: identificador, status,
 prévia de até 160 caracteres do prompt, solicitante e horários em Brasília.
+
+No fluxo atual, a run executa `PO → DEV → CODER`.
+
+1. O **PO** transforma o pedido em requisitos e histórias. Se o pedido exigir mais
+   de dez histórias de usuário, ele recusa a run com uma orientação fixa e o fluxo
+   termina como `COMPLETED` sem criar workspace — recusa é escopo, não erro.
+2. O **DEV** copia `code/template` para
+   `DEV_WORKSPACE_ROOT\<project_name>_<id-da-run>\codigo`, inicializa um commit
+   de baseline em git e **explora o código com ferramentas de leitura**
+   (`list_files`, `read_file`, `grep`) antes de salvar `development-plan.json` em
+   `artifacts`. Caminhos citados no plano são validados contra o workspace real.
+3. O **CODER** executa o plano **escrevendo no workspace** (`write_file`,
+   `delete_file`, além das ferramentas de leitura) e salva
+   `implementation-report.json`.
+
+Cada iteração de ferramenta de um agente é uma entrada `LLM_CALL` própria na
+timeline, numerada em `iteration`, com as ferramentas oferecidas, as chamadas
+pedidas, os resultados devolvidos e o custo daquela iteração. As escritas
+efetivadas em disco são comparadas com o que o CODER declara no relatório; toda
+divergência fica registrada como `CODER_REPORT_DIVERGED`.
+
+Nenhum agente executa comandos: não há build, teste ou container no loop. Os
+comandos de validação são apenas declarados, sempre copiados do bloco "Comandos
+permitidos" do manifesto do template.
 
 ## Coleção Postman
 

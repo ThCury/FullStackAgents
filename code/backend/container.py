@@ -1,42 +1,47 @@
 from __future__ import annotations
 
+from agents.coder.agent import CoderAgent
+from agents.developer.agent import DeveloperAgent
 from agents.product_owner.agent import ProductOwnerAgent
 from application.costs import CostCalculator
 from application.run_service import RunService
-from config import BACKEND_CONFIG, BackendConfig, Settings
-from infrastructure.llm import (
-    FakeStreamingLLM,
-    GeminiStreamingLLM,
-    OpenAIStreamingLLM,
-)
+from config import BACKEND_CONFIG, AgentLLMProfile, BackendConfig, Settings
+from infrastructure.llm import FakeStreamingLLM, GeminiStreamingLLM, OpenAIStreamingLLM
 from infrastructure.memory_repository import InMemoryRunRepository
 from infrastructure.mongo_repository import MongoRunRepository
+from infrastructure.workspace_manager import LocalWorkspaceManager, UnavailableWorkspaceManager
 
 
 class Container:
     def __init__(self, settings: Settings, backend_config: BackendConfig = BACKEND_CONFIG) -> None:
         self.backend_config = backend_config
-        if backend_config.persistence == "mongo":
-            repository = MongoRunRepository(
-                backend_config.mongodb_uri,
-                backend_config.mongodb_database,
-            )
-        else:
-            repository = InMemoryRunRepository()
+        repository = self._repository_for(backend_config)
 
-        profile = ProductOwnerAgent.llm_profile()
-        if profile.provider == "openai":
-            if not settings.openai_api_key:
-                raise ValueError("OPENAI_API_KEY é obrigatório para o modelo do PO.")
-            llm = OpenAIStreamingLLM(settings.openai_api_key, profile.model)
-        elif profile.provider == "gemini":
-            if not settings.gemini_api_key:
-                raise ValueError("GEMINI_API_KEY é obrigatório para o modelo do PO.")
-            llm = GeminiStreamingLLM(settings.gemini_api_key, profile.model)
-        else:
-            llm = FakeStreamingLLM()
-
-        agent = ProductOwnerAgent(llm=llm, model=profile.model, effort=profile.effort)
+        po_profile = ProductOwnerAgent.llm_profile()
+        dev_profile = DeveloperAgent.llm_profile()
+        product_owner = ProductOwnerAgent(
+            llm=self._llm_for(po_profile, settings),
+            model=po_profile.model,
+            effort=po_profile.effort,
+        )
+        developer = DeveloperAgent(
+            llm=self._llm_for(dev_profile, settings),
+            model=dev_profile.model,
+            effort=dev_profile.effort,
+            max_iterations=backend_config.max_tool_iterations,
+        )
+        coder_profile = CoderAgent.llm_profile()
+        coder = CoderAgent(
+            llm=self._llm_for(coder_profile, settings),
+            model=coder_profile.model,
+            effort=coder_profile.effort,
+            max_iterations=backend_config.max_tool_iterations,
+        )
+        workspace_manager = (
+            LocalWorkspaceManager(settings.dev_workspace_root, backend_config.template_root)
+            if settings.dev_workspace_root
+            else UnavailableWorkspaceManager()
+        )
         calculator = CostCalculator(
             input_price_per_million=backend_config.input_token_price_per_million,
             output_price_per_million=backend_config.output_token_price_per_million,
@@ -44,9 +49,33 @@ class Container:
         )
         self.run_service = RunService(
             repository=repository,
-            agent=agent,
+            product_owner=product_owner,
+            developer=developer,
+            coder=coder,
+            workspace_manager=workspace_manager,
             cost_calculator=calculator,
             stream_persist_interval_ms=backend_config.stream_persist_interval_ms,
         )
         self.repository = repository
         self.settings = settings
+
+    @staticmethod
+    def _repository_for(backend_config: BackendConfig):
+        if backend_config.persistence == "mongo":
+            return MongoRunRepository(
+                backend_config.mongodb_uri,
+                backend_config.mongodb_database,
+            )
+        return InMemoryRunRepository()
+
+    @staticmethod
+    def _llm_for(profile: AgentLLMProfile, settings: Settings):
+        if profile.provider == "openai":
+            if not settings.openai_api_key:
+                raise ValueError("OPENAI_API_KEY é obrigatório para o modelo configurado.")
+            return OpenAIStreamingLLM(settings.openai_api_key, profile.model)
+        if profile.provider == "gemini":
+            if not settings.gemini_api_key:
+                raise ValueError("GEMINI_API_KEY é obrigatório para o modelo configurado.")
+            return GeminiStreamingLLM(settings.gemini_api_key, profile.model)
+        return FakeStreamingLLM()

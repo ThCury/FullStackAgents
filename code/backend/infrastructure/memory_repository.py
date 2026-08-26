@@ -37,6 +37,9 @@ class InMemoryRunRepository:
     def append_timeline(self, run_id: str, item: dict) -> None:
         self._documents[run_id]["audit"]["timeline"].append(deepcopy(item))
 
+    def append_artifact(self, run_id: str, artifact: dict) -> None:
+        self._documents[run_id].setdefault("artifacts", []).append(deepcopy(artifact))
+
     def update_streaming_response(self, run_id: str, call_id: str, content: str) -> None:
         for item in self._documents[run_id]["audit"]["timeline"]:
             if item.get("call_id") == call_id:
@@ -55,6 +58,9 @@ class InMemoryRunRepository:
                     target[parts[-1]] = deepcopy(value)
                 return
         raise KeyError(f"Chamada não encontrada: {call_id}")
+
+    def update_totals(self, run_id: str, totals: dict) -> None:
+        self._documents[run_id]["audit"]["totals"] = deepcopy(totals)
 
     def finish_run(self, run_id: str, output: ProductBacklog, totals: dict) -> None:
         document = self._documents[run_id]

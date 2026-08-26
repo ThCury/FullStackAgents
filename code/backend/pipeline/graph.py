@@ -1,159 +1,255 @@
 from __future__ import annotations
 
-from time import monotonic
-from typing import TypedDict
+from typing import Any, TypedDict
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 
+from agents.coder.agent import CoderAgent
+from agents.developer.agent import DeveloperAgent
 from agents.product_owner.agent import ProductOwnerAgent
 from application.costs import CostCalculator
 from domain.models.audit_time import now_audit_time
+from domain.models.development_plan import DevelopmentPlan
+from domain.models.implementation_report import ImplementationReport
+from domain.models.product_backlog import ProductBacklog
+from domain.models.run_totals import RunTotals
 from domain.ports.run_repository import RunRepository
+from domain.ports.workspace_manager import WorkspaceManager
+from pipeline.timeline_auditor import TimelineAuditor
 
 
 class GraphState(TypedDict, total=False):
     run_id: str
     user_prompt: str
-    raw_response: str
-    output: dict
+    backlog: ProductBacklog
+    plan: DevelopmentPlan
+    report: ImplementationReport
+    workspace: dict[str, str]
+    totals: list[RunTotals]
 
 
-class ProductOwnerGraph:
+class FullstackGraph:
+    """Fluxo MVP: o PO especifica, o DEV planeja lendo o código e o CODER escreve."""
+
     def __init__(
         self,
         repository: RunRepository,
-        agent: ProductOwnerAgent,
+        product_owner: ProductOwnerAgent,
+        developer: DeveloperAgent,
+        coder: CoderAgent,
+        workspace_manager: WorkspaceManager,
         cost_calculator: CostCalculator,
         stream_persist_interval_ms: int,
     ) -> None:
         self._repository = repository
-        self._agent = agent
+        self._product_owner = product_owner
+        self._developer = developer
+        self._coder = coder
+        self._workspace_manager = workspace_manager
         self._cost_calculator = cost_calculator
         self._stream_persist_interval_seconds = stream_persist_interval_ms / 1000
+
         builder = StateGraph(GraphState)
+        builder.add_node("specify", self._specify)
         builder.add_node("plan", self._plan)
-        builder.add_edge(START, "plan")
-        builder.add_edge("plan", END)
+        builder.add_node("implement", self._implement)
+        builder.add_edge(START, "specify")
+        builder.add_conditional_edges(
+            "specify",
+            self._after_specify,
+            {"plan": "plan", "end": END},
+        )
+        builder.add_edge("plan", "implement")
+        builder.add_edge("implement", END)
         self._compiled = builder.compile()
 
     def invoke(self, state: GraphState) -> GraphState:
         return self._compiled.invoke(state)
 
+    # --- nós ---------------------------------------------------------------
+
+    def _specify(self, state: GraphState) -> GraphState:
+        run_id = state["run_id"]
+        auditor = self._auditor_for(run_id, "po", self._product_owner)
+        backlog, _ = self._product_owner.run(state["user_prompt"], auditor)
+
+        if not backlog.accepted:
+            self._append_flow_event(
+                run_id,
+                "PO_BACKLOG_REJECTED",
+                backlog.rejection or "Backlog recusado pelo Product Owner.",
+                False,
+                "po",
+                "PRODUCT_OWNER",
+            )
+            self._repository.finish_run(run_id, backlog, auditor.totals.model_dump())
+            return {"backlog": backlog, "totals": [auditor.totals]}
+
+        self._append_flow_event(
+            run_id,
+            "PO_BACKLOG_ACCEPTED",
+            "Backlog de produto criado pelo Product Owner.",
+            True,
+            "po",
+            "PRODUCT_OWNER",
+        )
+        return {"backlog": backlog, "totals": [auditor.totals]}
+
+    @staticmethod
+    def _after_specify(state: GraphState) -> str:
+        """Recusa do PO encerra a run com sucesso: não é erro, é escopo."""
+        return "plan" if state["backlog"].accepted else "end"
+
     def _plan(self, state: GraphState) -> GraphState:
         run_id = state["run_id"]
-        call_id = f"call_{uuid4().hex}"
-        request = self._agent.build_request(state["user_prompt"])
-        started_at = now_audit_time()
-        call = {
-            "sequence": self._repository.reserve_sequence(run_id),
-            "type": "LLM_CALL",
-            "call_id": call_id,
-            "attempt": 1,
-            "agent": {"id": "po", "role": self._agent.role, "version": self._agent.version},
-            "request": {
-                "from": {"type": "agent", "id": "po", "role": self._agent.role},
-                "to": {"type": "llm_provider", "id": self._agent.provider},
-                "prompt": request.prompt,
-                "system_prompt": request.system_prompt,
-                "system_prompt_version": "po-v1",
-                "model": request.model,
-                "provider": self._agent.provider,
-                "parameters": {"temperature": request.temperature},
-                "effort": request.effort,
-            },
-            "response": {
-                "from": {"type": "llm_provider", "id": self._agent.provider},
-                "to": {"type": "agent", "id": "po"},
-                "content": "",
-            },
-            "usage": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "cached_tokens": None,
-                "total_tokens": None,
-            },
-            "cost": {"estimated": None, "billed": None},
-            "started_at": started_at.model_dump(),
-            "status": "STREAMING",
-            "error": None,
-            **started_at.model_dump(),
-        }
-        self._repository.append_timeline(run_id, call)
-        self._append_flow_event(
-            run_id, "LLM_CALL_STARTED", "Chamada do PO ao modelo iniciada.", None
-        )
+        run = self._repository.get(run_id)
+        if run is None:
+            raise KeyError(f"Run não encontrado: {run_id}")
 
-        content = ""
-        last_persist = monotonic()
-
-        def on_delta(delta: str) -> None:
-            nonlocal content, last_persist
-            content += delta
-            if monotonic() - last_persist >= self._stream_persist_interval_seconds:
-                self._repository.update_streaming_response(run_id, call_id, content)
-                last_persist = monotonic()
-
-        before = monotonic()
-        try:
-            backlog, raw_response, completion = self._agent.run(state["user_prompt"], on_delta)
-        except Exception as error:
-            failed_at = now_audit_time()
-            self._repository.finish_call(
-                run_id,
-                call_id,
-                {
-                    "response.content": content,
-                    "finished_at": failed_at.model_dump(),
-                    "latency_ms": round((monotonic() - before) * 1000),
-                    "status": "FAILED",
-                    "error": str(error),
-                },
-            )
-            self._append_flow_event(run_id, "LLM_CALL_FAILED", "Chamada do modelo falhou.", False)
-            raise
-        latency_ms = round((monotonic() - before) * 1000)
-        completed_at = now_audit_time()
-        totals = self._cost_calculator.totals(
-            completion.get("input_tokens"),
-            completion.get("output_tokens"),
-            completion.get("cached_tokens"),
-            latency_ms,
+        workspace = self._workspace_manager.create_project(
+            run_id, run["input"].get("project_name", "novo-projeto")
         )
-        self._repository.finish_call(
-            run_id,
-            call_id,
-            {
-                "response.content": raw_response,
-                "response.finish_reason": completion.get("finish_reason"),
-                "provider_response_id": completion.get("provider_response_id"),
-                "usage": {
-                    "input_tokens": completion.get("input_tokens"),
-                    "output_tokens": completion.get("output_tokens"),
-                    "cached_tokens": completion.get("cached_tokens"),
-                    "total_tokens": totals.total_tokens,
-                },
-                "cost": {"estimated": totals.estimated_cost.model_dump(), "billed": None},
-                "finished_at": completed_at.model_dump(),
-                "latency_ms": latency_ms,
-                "status": "SUCCEEDED",
-            },
-        )
-        self._append_flow_event(
-            run_id, "LLM_CALL_SUCCEEDED", "Resposta do modelo recebida e persistida.", None
-        )
-        self._repository.finish_run(run_id, backlog, totals.model_dump())
+        self._append_artifact(run_id, "workspace", workspace)
         self._append_flow_event(
             run_id,
-            "AGENT_RESULT_ACCEPTED",
-            "Resultado do PO validado: requisitos e histórias de usuário disponíveis.",
+            "DEV_WORKSPACE_CREATED",
+            "Workspace isolado criado a partir do template de referência.",
             True,
+            "dev",
+            "DEVELOPER",
         )
-        self._append_flow_event(run_id, "RUN_COMPLETED", "Fluxo do Product Owner concluído.", True)
-        return {"raw_response": raw_response, "output": backlog.model_dump()}
+
+        auditor = self._auditor_for(run_id, "dev", self._developer)
+        plan, outcome = self._developer.run(
+            state["backlog"],
+            self._workspace_manager.template_manifest(),
+            self._workspace_manager,
+            workspace,
+            auditor,
+        )
+        plan_path = self._workspace_manager.write_artifact(
+            workspace, "development-plan.json", plan.model_dump_json(indent=2)
+        )
+        self._append_artifact(
+            run_id,
+            "development_plan",
+            {
+                "path": str(plan_path),
+                "content": plan.model_dump(),
+                "tool_iterations": outcome.iterations,
+            },
+        )
+        self._append_flow_event(
+            run_id,
+            "DEV_PLAN_READY",
+            f"Plano de implementação pronto após {outcome.iterations} iterações.",
+            True,
+            "dev",
+            "DEVELOPER",
+        )
+        return {
+            "plan": plan,
+            "workspace": workspace,
+            "totals": [*state["totals"], auditor.totals],
+        }
+
+    def _implement(self, state: GraphState) -> GraphState:
+        run_id = state["run_id"]
+        workspace = state["workspace"]
+        auditor = self._auditor_for(run_id, "coder", self._coder)
+        report, writes, outcome = self._coder.run(
+            state["backlog"],
+            state["plan"],
+            self._workspace_manager.template_manifest(),
+            self._workspace_manager,
+            workspace,
+            auditor,
+        )
+        report_path = self._workspace_manager.write_artifact(
+            workspace, "implementation-report.json", report.model_dump_json(indent=2)
+        )
+        divergences = report.divergence_from(writes)
+        self._append_artifact(
+            run_id,
+            "implementation_report",
+            {
+                "path": str(report_path),
+                "content": report.model_dump(),
+                "performed_writes": writes,
+                "divergences": divergences,
+                "tool_iterations": outcome.iterations,
+                "diff_stat": self._workspace_manager.diff(workspace),
+            },
+        )
+        if divergences:
+            self._append_flow_event(
+                run_id,
+                "CODER_REPORT_DIVERGED",
+                "; ".join(divergences),
+                False,
+                "coder",
+                "CODER",
+            )
+        self._append_flow_event(
+            run_id,
+            "CODER_IMPLEMENTATION_READY",
+            f"{len(writes)} arquivo(s) gravado(s) em {outcome.iterations} iterações.",
+            True,
+            "coder",
+            "CODER",
+        )
+
+        totals = [*state["totals"], auditor.totals]
+        self._repository.finish_run(
+            run_id,
+            state["backlog"],
+            self._cost_calculator.combine(*totals).model_dump(),
+        )
+        self._append_flow_event(
+            run_id,
+            "RUN_COMPLETED",
+            "Fluxo PO → DEV → CODER concluído.",
+            True,
+            "coder",
+            "CODER",
+        )
+        return {"report": report, "totals": totals}
+
+    # --- auditoria ---------------------------------------------------------
+
+    def _auditor_for(self, run_id: str, agent_id: str, agent: Any) -> TimelineAuditor:
+        return TimelineAuditor(
+            repository=self._repository,
+            cost_calculator=self._cost_calculator,
+            run_id=run_id,
+            agent_id=agent_id,
+            role=agent.role,
+            version=agent.version,
+            provider=agent.provider,
+            stream_persist_interval_seconds=self._stream_persist_interval_seconds,
+        )
+
+    def _append_artifact(self, run_id: str, artifact_type: str, content: dict[str, Any]) -> None:
+        time = now_audit_time()
+        self._repository.append_artifact(
+            run_id,
+            {
+                "id": f"artifact_{uuid4().hex}",
+                "type": artifact_type,
+                "content": content,
+                **time.model_dump(),
+            },
+        )
 
     def _append_flow_event(
-        self, run_id: str, event: str, summary: str, approved: bool | None
+        self,
+        run_id: str,
+        event: str,
+        summary: str,
+        approved: bool | None,
+        target_id: str,
+        target_role: str,
     ) -> None:
         time = now_audit_time()
         self._repository.append_timeline(
@@ -162,8 +258,8 @@ class ProductOwnerGraph:
                 "sequence": self._repository.reserve_sequence(run_id),
                 "type": "FLOW_EVENT",
                 "event": event,
-                "from": {"type": "orchestrator", "id": "product_owner_graph"},
-                "to": {"type": "agent", "id": "po", "role": "PRODUCT_OWNER"},
+                "from": {"type": "orchestrator", "id": "fullstack_graph"},
+                "to": {"type": "agent", "id": target_id, "role": target_role},
                 "attempt": 1,
                 "approved": approved,
                 "summary": summary,

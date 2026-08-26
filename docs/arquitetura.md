@@ -129,20 +129,61 @@ ou abre um pull request manualmente; o squad não faz `push`, merge ou deploy.
 O estado carrega somente referências e dados necessários ao fluxo; prompts e
 respostas completos ficam na auditoria, evitando checkpoints enormes.
 
-```python
-class SquadState(TypedDict):
-    run_id: str
-    status: str
-    backlog: list[Story]
-    current_story_id: str | None
-    current_attempt: int
-    last_delivery_id: str | None
-    last_qa_report_id: str | None
-    spent_usd: str
-    error: str | None
+### Fluxo implementado — MVP PO → DEV → CODER
+
+O fluxo possui três nós LangGraph. O estado começa com o prompt, ganha o backlog
+do PO, o plano do DEV e o relatório do CODER. Uma aresta condicional depois de
+`specify` encerra a run quando o PO recusa o pedido por excesso de escopo: nesse
+caso nenhum workspace é criado e a run termina `COMPLETED`, porque a recusa é uma
+resposta de produto e não uma falha. Se um nó falhar, a run é finalizada como
+`FAILED` e a falha fica registrada na timeline.
+
+DEV e CODER conversam com o modelo em um **loop de ferramentas**: o agente pede
+ferramentas, o `WorkspaceToolset` executa contra o workspace da run e devolve o
+resultado, até o agente responder sem pedir mais nada. O DEV recebe um toolset
+somente de leitura (`list_files`, `read_file`, `grep`); o CODER recebe também
+`write_file` e `delete_file`. Nenhum agente executa comandos.
+
+```mermaid
+flowchart TD
+    S([START]) --> P[specify: PO especifica o backlog]
+    P -->|TOO_COMPLEX| R([END / COMPLETED: recusa registrada])
+    P -->|backlog aceito| D[plan: DEV planeja]
+    D --> W[Copia code/template e cria baseline em git]
+    W --> L[DEV le o codigo com ferramentas e cria development-plan.json]
+    L --> C[implement: CODER executa o plano]
+    C --> G[CODER escreve no workspace e cria implementation-report.json]
+    G --> F[Compara relatorio com o disco e finaliza a run]
+    F --> E([END / COMPLETED])
+    P -. erro .-> X([FAILED])
+    D -. erro .-> X
+    C -. erro .-> X
 ```
 
-Nós previstos: `plan`, `select_story`, `develop`, `test`, `route_qa`,
+Cada iteração do loop é uma entrada `LLM_CALL` própria na timeline, numerada em
+`iteration`, com as ferramentas oferecidas, as chamadas pedidas, os resultados
+devolvidos e o custo daquela iteração. As escritas efetivadas em disco são
+comparadas com o que o CODER declara no relatório, e toda divergência fica
+registrada como `CODER_REPORT_DIVERGED`: o disco é a verdade, o relatório é uma
+alegação.
+
+A contenção de caminhos é por run, não por raiz: um caminho vindo do modelo é
+validado contra a pasta de código da própria run, de modo que uma run não alcance
+o workspace de outra.
+
+```python
+class GraphState(TypedDict, total=False):
+    run_id: str
+    user_prompt: str
+    backlog: ProductBacklog
+    plan: DevelopmentPlan
+    report: ImplementationReport
+    workspace: dict[str, str]
+    totals: list[RunTotals]
+```
+
+Nós atuais: `specify`, `plan` e `implement`. Próximos nós previstos: `validate`
+(execução dos comandos permitidos com devolução do stderr ao CODER), `route_qa`,
 `finalize` e `request_human`. Cada nó deve ser pequeno, idempotente e chamar um
 caso de uso; o nó não contém regra de persistência ou de provedor.
 

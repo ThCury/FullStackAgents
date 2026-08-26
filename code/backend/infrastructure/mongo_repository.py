@@ -79,6 +79,9 @@ class MongoRunRepository:
     def append_timeline(self, run_id: str, item: dict) -> None:
         self._collection.update_one({"_id": run_id}, {"$push": {"audit.timeline": _to_mongo(item)}})
 
+    def append_artifact(self, run_id: str, artifact: dict) -> None:
+        self._collection.update_one({"_id": run_id}, {"$push": {"artifacts": _to_mongo(artifact)}})
+
     def update_streaming_response(self, run_id: str, call_id: str, content: str) -> None:
         result = self._collection.update_one(
             {"_id": run_id},
@@ -96,6 +99,12 @@ class MongoRunRepository:
             {"_id": run_id},
             {"$set": updates},
             array_filters=[{"call.call_id": call_id}],
+        )
+
+    def update_totals(self, run_id: str, totals: dict) -> None:
+        self._collection.update_one(
+            {"_id": run_id},
+            {"$set": {"audit.totals": _to_mongo(totals)}},
         )
 
     def finish_run(self, run_id: str, output: ProductBacklog, totals: dict) -> None:

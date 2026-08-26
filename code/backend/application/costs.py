@@ -37,3 +37,11 @@ class CostCalculator:
             estimated_cost=CostValue(amount=estimated, price_version=self._price_version),
             llm_latency_ms=latency_ms,
         )
+
+    def combine(self, *totals: RunTotals) -> RunTotals:
+        return self.totals(
+            sum(total.input_tokens for total in totals),
+            sum(total.output_tokens for total in totals),
+            sum(total.cached_tokens for total in totals),
+            sum(total.llm_latency_ms for total in totals),
+        )

@@ -61,7 +61,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"prompt\": \"Quero criar um portal para clientes consultarem suas apólices.\",\n  \"requested_by_id\": \"thiago\",\n  \"requested_by_name\": \"Thiago\"\n}"
+              "raw": "{\n  \"prompt\": \"Quero criar um portal para clientes consultarem suas apólices.\",\n  \"project_name\": \"portal-clientes\",\n  \"requested_by_id\": \"thiago\",\n  \"requested_by_name\": \"Thiago\"\n}"
             },
             "url": "{{base_url}}/runs"
           }
