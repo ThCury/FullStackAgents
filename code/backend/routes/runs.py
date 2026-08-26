@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from typing import Literal
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
 
+from application.run_presentation import RunPresentation
 from domain.models.create_run_command import CreateRunCommand
 
 router = APIRouter()
@@ -26,10 +29,26 @@ def create_run(
     }
 
 
+@router.get("/runs")
+def list_runs(request: Request) -> dict:
+    runs = _service(request).list_runs()
+    return jsonable_encoder(
+        {
+            "total": len(runs),
+            "runs": [RunPresentation.list_item(run) for run in runs],
+        }
+    )
+
+
 @router.get("/runs/{run_id}")
-def get_run(run_id: str, request: Request) -> dict:
+def get_run(
+    run_id: str,
+    request: Request,
+    dataset: Literal["full", "resume"] = Query(default="resume"),
+) -> dict:
     try:
-        return jsonable_encoder(_service(request).get_or_raise(run_id))
+        run = _service(request).get_or_raise(run_id)
+        return jsonable_encoder(RunPresentation.render(run, dataset))
     except KeyError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 

@@ -48,8 +48,8 @@ def test_gemini_can_be_selected_per_agent_config(monkeypatch) -> None:
     monkeypatch.setitem(
         AGENT_LLM_PROFILES,
         "PRODUCT_OWNER",
-        AgentLLMProfile(provider="gemini", model="gemini-2.5-flash"),
+        AgentLLMProfile(provider="gemini", model="gemini-3.6-flash"),
     )
     profile = ProductOwnerAgent.llm_profile()
     assert profile.provider == "gemini"
-    assert profile.model == "gemini-2.5-flash"
+    assert profile.model == "gemini-3.6-flash"

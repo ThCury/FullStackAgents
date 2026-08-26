@@ -3,7 +3,7 @@ from __future__ import annotations
 from agents.product_owner.agent import ProductOwnerAgent
 from application.costs import CostCalculator
 from application.run_service import RunService
-from config import BACKEND_CONFIG, Settings
+from config import BACKEND_CONFIG, BackendConfig, Settings
 from infrastructure.llm import (
     FakeStreamingLLM,
     GeminiStreamingLLM,
@@ -14,11 +14,12 @@ from infrastructure.mongo_repository import MongoRunRepository
 
 
 class Container:
-    def __init__(self, settings: Settings) -> None:
-        if BACKEND_CONFIG.persistence == "mongo":
+    def __init__(self, settings: Settings, backend_config: BackendConfig = BACKEND_CONFIG) -> None:
+        self.backend_config = backend_config
+        if backend_config.persistence == "mongo":
             repository = MongoRunRepository(
-                BACKEND_CONFIG.mongodb_uri,
-                BACKEND_CONFIG.mongodb_database,
+                backend_config.mongodb_uri,
+                backend_config.mongodb_database,
             )
         else:
             repository = InMemoryRunRepository()
@@ -37,15 +38,15 @@ class Container:
 
         agent = ProductOwnerAgent(llm=llm, model=profile.model, effort=profile.effort)
         calculator = CostCalculator(
-            input_price_per_million=BACKEND_CONFIG.input_token_price_per_million,
-            output_price_per_million=BACKEND_CONFIG.output_token_price_per_million,
-            price_version=BACKEND_CONFIG.price_version,
+            input_price_per_million=backend_config.input_token_price_per_million,
+            output_price_per_million=backend_config.output_token_price_per_million,
+            price_version=backend_config.price_version,
         )
         self.run_service = RunService(
             repository=repository,
             agent=agent,
             cost_calculator=calculator,
-            stream_persist_interval_ms=BACKEND_CONFIG.stream_persist_interval_ms,
+            stream_persist_interval_ms=backend_config.stream_persist_interval_ms,
         )
         self.repository = repository
         self.settings = settings

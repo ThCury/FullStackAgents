@@ -101,7 +101,7 @@ GEMINI_API_KEY=sua_chave
 ```
 
 Provider e modelo do PO são decisões versionadas em `code/backend/config.py`,
-na constante `AGENT_LLM_PROFILES`. Hoje o PO escolhe `gemini-2.5-flash`. Quando DEV
+na constante `AGENT_LLM_PROFILES`. Hoje o PO escolhe `gemini-3.6-flash`. Quando DEV
 e QA forem adicionados, cada um receberá outro perfil nessa mesma lista, sem alterar
 o `.env`. A API registra provider, modelo e demais parâmetros no item `LLM_CALL` da
 auditoria, mas nunca registra a chave.

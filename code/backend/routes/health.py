@@ -1,18 +1,16 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from agents.product_owner.agent import ProductOwnerAgent
-from config import BACKEND_CONFIG
 
 router = APIRouter()
 
 
 @router.get("/health")
-def health() -> dict:
+def health(request: Request) -> dict:
     profile = ProductOwnerAgent.llm_profile()
     return {
         "status": "ok",
-        "persistence": BACKEND_CONFIG.persistence,
+        "persistence": request.app.state.container.backend_config.persistence,
         "po_llm_provider": profile.provider,
         "po_llm_model": profile.model,
     }
-

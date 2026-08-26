@@ -18,6 +18,7 @@ O projeto está na fase de definição da arquitetura e dos requisitos. A docume
 - [Requisitos funcionais e não funcionais](docs/requisitos.md)
 - [Arquitetura e princípios SOLID](docs/arquitetura.md)
 - [Architecture Decision Records](docs/ADR/README.md)
+- [Como executar o backend](docs/instruction.md)
 
 ## Resultado esperado do MVP
 

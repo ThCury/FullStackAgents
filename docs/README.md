@@ -11,7 +11,8 @@ fluxo auditável.
 3. [Modelo de dados MongoDB](modelo-dados-mongodb.md) — auditoria de mensagens,
    chamadas LLM e fluxo.
 4. [Plano do backend inicial](plano-backend-po.md) — PO com LangGraph, sem DEV/QA.
-5. [ADRs](ADR/README.md) — por que as principais decisões foram tomadas.
+5. [Instruções de execução](instruction.md) — rodar API, testar run e Postman.
+6. [ADRs](ADR/README.md) — por que as principais decisões foram tomadas.
 
 ## Testar a API
 

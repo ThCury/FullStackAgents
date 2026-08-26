@@ -30,6 +30,14 @@
       "name": "Runs",
       "item": [
         {
+          "name": "Listar runs (resumo curto)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/runs"
+          }
+        },
+        {
           "name": "Criar run do PO",
           "event": [
             {
@@ -59,11 +67,19 @@
           }
         },
         {
-          "name": "Consultar status do run",
+          "name": "Consultar resumo do run (padrão)",
           "request": {
             "method": "GET",
             "header": [],
             "url": "{{base_url}}/runs/{{run_id}}"
+          }
+        },
+        {
+          "name": "Consultar run completa",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/runs/{{run_id}}?dataset=full"
           }
         },
         {

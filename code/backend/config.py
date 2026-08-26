@@ -21,7 +21,7 @@ class AgentLLMProfile:
 @dataclass(frozen=True)
 class BackendConfig:
     app_name: str = "FullStack Agents"
-    persistence: Literal["memory", "mongo"] = "memory"
+    persistence: Literal["memory", "mongo"] = "mongo"
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_database: str = "fullstack_agents"
     stream_persist_interval_ms: int = 500
@@ -35,7 +35,7 @@ class BackendConfig:
 AGENT_LLM_PROFILES: dict[str, AgentLLMProfile] = {
     "PRODUCT_OWNER": AgentLLMProfile(
         provider="gemini",
-        model="gemini-2.5-flash",
+        model="gemini-3.6-flash",
     ),
 }
 
