@@ -20,6 +20,12 @@ class InMemoryRunRepository:
         document = self._documents.get(run_id)
         return deepcopy(document) if document else None
 
+    def list_runs(self) -> list[dict]:
+        documents = sorted(
+            self._documents.values(), key=lambda document: document["timestamp"], reverse=True
+        )
+        return deepcopy(documents)
+
     def mark_running(self, run_id: str) -> None:
         self._documents[run_id]["status"] = RunStatus.RUNNING.value
 

@@ -45,6 +45,9 @@ foi consumido e quais artefatos foram produzidos.
 | RF-020 | No modo `existing_project`, o sistema deve receber uma referência autorizada do projeto e criar uma cópia de trabalho isolada. | Must |
 | RF-021 | Antes de alterar projeto existente, o DEV deve registrar diagnóstico: tecnologias, comandos, testes, arquivos relevantes e estado do Git. | Must |
 | RF-022 | A entrega de projeto existente deve conter diff, arquivos alterados, comandos executados e instruções de aplicação/reversão. | Must |
+| RF-023 | O administrador deve configurar uma raiz local autorizada para os workspaces do DEV. | Must |
+| RF-024 | Projetos novos devem partir de um template versionado, identificado no artefato da run. | Must |
+| RF-025 | Cada projeto gerado deve incluir comandos documentados para compilar, testar e executar via Docker Compose. | Must |
 
 ## 4. Regras de negócio
 
@@ -66,6 +69,10 @@ foi consumido e quais artefatos foram produzidos.
   explícita e autenticada do usuário fora do fluxo automático do MVP.
 - RN-011: um diagnóstico de projeto existente não pode expor segredos encontrados
   em arquivos de configuração; eles devem ser mascarados antes de virar contexto.
+- RN-012: toda operação de escrita do DEV deve ter caminho final resolvido abaixo
+  da raiz de workspace autorizada; o agente não recebe acesso ao restante do disco.
+- RN-013: uma run de projeto novo deve registrar a versão exata do template de que
+  foi derivada e as evidências de build e teste.
 
 ## 5. Requisitos não funcionais
 
@@ -100,6 +107,8 @@ foi consumido e quais artefatos foram produzidos.
    preserva seu `timestamp` UTC para ordenação e integração.
 10. Dado um repositório existente autorizado, o sistema preserva a origem, cria
     uma cópia isolada e entrega um diff auditável sem alterar a branch original.
+11. Dado um projeto novo, o sistema cria o workspace abaixo da raiz autorizada,
+    copia o template versionado e entrega comandos Docker Compose para executá-lo.
 
 ## 7. Matriz de rastreabilidade
 

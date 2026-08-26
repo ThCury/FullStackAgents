@@ -49,6 +49,19 @@ class MongoRunRepository:
         document = self._collection.find_one({"_id": run_id})
         return _to_api(document) if document else None
 
+    def list_runs(self) -> list[dict]:
+        projection = {
+            "_id": 1,
+            "flow": 1,
+            "status": 1,
+            "requested_by": 1,
+            "input.content": 1,
+            "brasil_datetime": 1,
+            "finished_at.brasil_datetime": 1,
+        }
+        documents = self._collection.find({}, projection).sort("timestamp", -1)
+        return [_to_api(document) for document in documents]
+
     def mark_running(self, run_id: str) -> None:
         self._collection.update_one({"_id": run_id}, {"$set": {"status": RunStatus.RUNNING.value}})
 

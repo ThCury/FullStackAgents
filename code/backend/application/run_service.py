@@ -129,6 +129,9 @@ class RunService:
             raise KeyError(f"Run não encontrado: {run_id}")
         return document
 
+    def list_runs(self) -> list[dict]:
+        return self._repository.list_runs()
+
     def _append_event(self, run_id: str, item_type: str, fields: dict) -> None:
         time = now_audit_time()
         self._repository.append_timeline(

@@ -12,6 +12,7 @@ ADRs registram decisões estruturais e suas consequências. Uma decisão aceita 
 | [0005](0005-medicao-centralizada-de-custos.md) | Medição centralizada de consumo e custos | Aceita |
 | [0006](0006-execucao-isolada-do-codigo-gerado.md) | Execução isolada do código gerado | Aceita |
 | [0007](0007-copia-isolada-para-projetos-existentes.md) | Cópia isolada para projetos existentes | Aceita |
+| [0008](0008-workspace-local-e-template-versionado.md) | Workspace local e template versionado | Aceita |
 
 ## Modelo para novas ADRs
 
