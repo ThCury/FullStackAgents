@@ -18,6 +18,7 @@ class RunPresentation:
     def list_item(run: dict) -> dict:
         return {
             "run_id": run["_id"],
+            "project_id": run.get("project_id"),
             "status": RunPresentation._public_status(run["status"]),
             "prompt_preview": RunPresentation._preview(run["input"]["content"]),
             "requested_by": {

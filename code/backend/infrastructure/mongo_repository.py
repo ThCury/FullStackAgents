@@ -40,6 +40,7 @@ class MongoRunRepository:
     def _ensure_indexes(self) -> None:
         self._collection.create_index([("status", 1), ("timestamp", -1)])
         self._collection.create_index([("requested_by.id", 1), ("timestamp", -1)])
+        self._collection.create_index([("project_id", 1), ("timestamp", -1)])
         self._collection.create_index([("brasil_datetime", -1)])
 
     def create(self, document: dict) -> None:
@@ -60,6 +61,22 @@ class MongoRunRepository:
             "finished_at.brasil_datetime": 1,
         }
         documents = self._collection.find({}, projection).sort("timestamp", -1)
+        return [_to_api(document) for document in documents]
+
+    def list_by_project(self, project_id: str) -> list[dict]:
+        projection = {
+            "_id": 1,
+            "flow": 1,
+            "status": 1,
+            "requested_by": 1,
+            "input.content": 1,
+            "brasil_datetime": 1,
+            "finished_at.brasil_datetime": 1,
+            "project_id": 1,
+        }
+        documents = self._collection.find({"project_id": project_id}, projection).sort(
+            "timestamp", -1
+        )
         return [_to_api(document) for document in documents]
 
     def mark_running(self, run_id: str) -> None:
@@ -105,6 +122,12 @@ class MongoRunRepository:
         self._collection.update_one(
             {"_id": run_id},
             {"$set": {"audit.totals": _to_mongo(totals)}},
+        )
+
+    def set_backlog_snapshot(self, run_id: str, backlog: dict) -> None:
+        self._collection.update_one(
+            {"_id": run_id},
+            {"$set": {"backlog_snapshot": _to_mongo(backlog)}},
         )
 
     def finish_run(self, run_id: str, output: ProductBacklog, totals: dict) -> None:

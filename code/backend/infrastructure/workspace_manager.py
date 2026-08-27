@@ -22,6 +22,9 @@ class UnavailableWorkspaceManager:
     def create_project(self, run_id: str, project_name: str) -> dict:
         raise ValueError(self._MESSAGE)
 
+    def open_project_workspace(self, workspace: dict) -> dict:
+        raise RuntimeError(self._MESSAGE)
+
     def template_manifest(self) -> str:
         raise RuntimeError(self._MESSAGE)
 
@@ -79,6 +82,20 @@ class LocalWorkspaceManager:
             "artifacts_path": str(artifacts_path),
             "template": "code/template",
             "baseline_commit": self._create_baseline(code_path),
+        }
+
+    def open_project_workspace(self, workspace: dict) -> dict:
+        """Valida e devolve um workspace persistente de um único projeto."""
+        code_path = self._code_root(workspace)
+        artifacts_path = Path(workspace["artifacts_path"]).resolve()
+        self._contain(self._root, artifacts_path)
+        if not code_path.is_dir() or not artifacts_path.is_dir():
+            raise ValueError("Workspace do projeto não existe mais no disco.")
+        return {
+            **workspace,
+            "workspace_path": str(Path(workspace["workspace_path"]).resolve()),
+            "code_path": str(code_path),
+            "artifacts_path": str(artifacts_path),
         }
 
     def template_manifest(self) -> str:

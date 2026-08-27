@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from time import monotonic
+from time import monotonic, sleep
 
 from application.workspace_toolset import WorkspaceToolset
 from domain.models.llm_message import LLMMessage
@@ -11,6 +11,15 @@ from domain.ports.agent_auditor import AgentAuditor
 from domain.ports.streaming_llm import StreamingLLM
 
 FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
+RETRYABLE_ERROR_MARKERS = (
+    "429",
+    "500",
+    "502",
+    "503",
+    "504",
+    "RESOURCE_EXHAUSTED",
+    "UNAVAILABLE",
+)
 
 
 class MaxIterationsError(RuntimeError):
@@ -48,11 +57,15 @@ class AgentLoop:
         auditor: AgentAuditor,
         toolset: WorkspaceToolset | None = None,
         max_iterations: int = 24,
+        max_retries: int = 3,
+        retry_base_delay_seconds: float = 2.0,
     ) -> None:
         self._llm = llm
         self._auditor = auditor
         self._toolset = toolset
         self._max_iterations = max_iterations
+        self._max_retries = max_retries
+        self._retry_base_delay_seconds = retry_base_delay_seconds
 
     def run(self, request: LLMRequest) -> LoopOutcome:
         tools = self._toolset.definitions() if self._toolset else []
@@ -60,23 +73,11 @@ class AgentLoop:
 
         for iteration in range(1, self._max_iterations + 1):
             current = request.model_copy(update={"tools": tools, "history": history})
-            call_id = self._auditor.start_call(current, iteration)
-            started = monotonic()
-            parts: list[str] = []
-
-            try:
-                completion, tool_calls = self._consume(current, call_id, parts)
-            except Exception as error:
-                self._auditor.fail_call(
-                    call_id, "".join(parts), self._elapsed(started), str(error)
-                )
-                raise
-
-            text = "".join(parts)
+            call_id, text, completion, tool_calls, latency_ms = self._call_with_retries(
+                current, iteration
+            )
             if not tool_calls:
-                self._auditor.finish_call(
-                    call_id, text, completion, self._elapsed(started), [], []
-                )
+                self._auditor.finish_call(call_id, text, completion, latency_ms, [], [])
                 return LoopOutcome(text, iteration, self._writes())
 
             if self._toolset is None:
@@ -85,12 +86,10 @@ class AgentLoop:
             try:
                 results = [self._toolset.execute(call) for call in tool_calls]
             except Exception as error:
-                self._auditor.fail_call(call_id, text, self._elapsed(started), str(error))
+                self._auditor.fail_call(call_id, text, latency_ms, str(error))
                 raise
 
-            self._auditor.finish_call(
-                call_id, text, completion, self._elapsed(started), tool_calls, results
-            )
+            self._auditor.finish_call(call_id, text, completion, latency_ms, tool_calls, results)
             history = history + [
                 LLMMessage(role="assistant", content=text, tool_calls=tool_calls),
                 LLMMessage(role="tool", tool_results=results),
@@ -99,6 +98,26 @@ class AgentLoop:
         raise MaxIterationsError(
             f"O agente não concluiu em {self._max_iterations} iterações de ferramentas."
         )
+
+    def _call_with_retries(
+        self, request: LLMRequest, iteration: int
+    ) -> tuple[str, str, dict, list, int]:
+        for retry_attempt in range(1, self._max_retries + 2):
+            call_id = self._auditor.start_call(request, iteration, retry_attempt)
+            started = monotonic()
+            parts: list[str] = []
+            try:
+                completion, tool_calls = self._consume(request, call_id, parts)
+            except Exception as error:
+                self._auditor.fail_call(
+                    call_id, "".join(parts), self._elapsed(started), str(error)
+                )
+                if not self._is_retryable(error) or retry_attempt > self._max_retries:
+                    raise
+                sleep(self._retry_base_delay_seconds * 2 ** (retry_attempt - 1))
+                continue
+            return call_id, "".join(parts), completion, tool_calls, self._elapsed(started)
+        raise RuntimeError("Tentativas de LLM esgotadas.")
 
     def _consume(self, request: LLMRequest, call_id: str, parts: list[str]):
         completion: dict = {}
@@ -112,6 +131,11 @@ class AgentLoop:
                 if event.completed:
                     completion = event.completed.model_dump()
         return completion, tool_calls
+
+    @staticmethod
+    def _is_retryable(error: Exception) -> bool:
+        message = str(error).upper()
+        return any(marker in message for marker in RETRYABLE_ERROR_MARKERS)
 
     def _writes(self) -> list[dict[str, str]]:
         return self._toolset.writes if self._toolset else []

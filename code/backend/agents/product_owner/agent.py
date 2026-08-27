@@ -27,7 +27,14 @@ class ProductOwnerAgent(PromptedAgent):
 
     def run(self, user_prompt: str, auditor: AgentAuditor) -> tuple[ProductBacklog, LoopOutcome]:
         """O PO não recebe ferramentas: ele só interpreta o pedido do usuário."""
-        loop = AgentLoop(self._llm, auditor, toolset=None, max_iterations=1)
+        loop = AgentLoop(
+            self._llm,
+            auditor,
+            toolset=None,
+            max_iterations=1,
+            max_retries=self._max_retries,
+            retry_base_delay_seconds=self._retry_base_delay_seconds,
+        )
         outcome = loop.run(self.build_request(user_prompt))
         try:
             backlog = ProductBacklog.model_validate(outcome.as_json())

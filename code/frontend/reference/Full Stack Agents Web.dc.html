@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  body{margin:0;background:#050505;font-family:'Inter',sans-serif}
+  a{color:#A3E635;text-decoration:none}
+  a:hover{color:#bef264}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  ::placeholder{color:#71717a}
+  input,textarea,button{font-family:'Inter',sans-serif}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#0A0A0A;display:flex;flex-direction:column">
+
+  <!-- LOGIN -->
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:800px;border-radius:50%;background:rgba(163,230,53,0.06);filter:blur(120px);pointer-events:none"></div>
+      <div style="position:relative;width:420px;padding:40px;border:1px solid #27272A;border-radius:16px;background:#0d0d0d;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;border-radius:8px;background:#A3E635;display:flex;align-items:center;justify-content:center;font-size:14px;color:#0A0A0A;font-weight:700">⚡</div>
+          <div style="font-size:15px;font-weight:600;color:#fff">Full Stack Agents</div>
+        </div>
+        <div>
+          <div style="font-size:28px;font-weight:500;color:#fff;letter-spacing:-0.01em">Bem-vindo de volta</div>
+          <div style="font-size:14px;color:#A1A1AA;margin-top:8px;line-height:1.5">Entre para orquestrar seus agentes de IA</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#71717a">E-mail</label>
+          <input type="email" placeholder="voce@empresa.com" value="{{ loginEmail }}" onChange="{{ onEmailChange }}" style="font-size:15px;padding:13px 14px;border:1px solid #27272A;border-radius:8px;background:#18181B;color:#fff;outline:none"></input>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#71717a">Senha</label>
+          <input type="password" placeholder="••••••••" style="font-size:15px;padding:13px 14px;border:1px solid #27272A;border-radius:8px;background:#18181B;color:#fff;outline:none"></input>
+        </div>
+        <button onClick="{{ login }}" style="padding:14px;font-size:15px;font-weight:600;background:#A3E635;color:#0A0A0A;border:none;border-radius:8px;cursor:pointer">Entrar</button>
+        <div style="text-align:center;font-size:13px;color:#71717a">esqueceu a senha? · criar conta</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- APP SHELL -->
+  <sc-if value="{{ notLogin }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;flex:1">
+      <div style="height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid #18181B">
+        <div style="display:flex;align-items:center;gap:32px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:26px;height:26px;border-radius:7px;background:#A3E635;display:flex;align-items:center;justify-content:center;font-size:13px;color:#0A0A0A;font-weight:700">⚡</div>
+            <div style="font-size:14px;font-weight:600;color:#fff">Full Stack Agents</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <a href="#" onClick="{{ goHome }}" style="font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;color:{{ homeTabColor }};background:{{ homeTabBg }};white-space:nowrap;display:flex;align-items:center">Novo prompt</a>
+            <a href="#" onClick="{{ goHistory }}" style="font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;color:{{ historyTabColor }};background:{{ historyTabBg }};white-space:nowrap;display:flex;align-items:center">Histórico</a>
+          </div>
+        </div>
+        <div onClick="{{ goProfile }}" style="cursor:pointer;width:34px;height:34px;border-radius:50%;border:1px solid {{ profileTabColor }};display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ profileTabColor }};font-weight:600">AF</div>
+      </div>
+
+      <!-- HOME -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:80px 24px 60px">
+          <div style="display:inline-flex;align-items:center;gap:6px;border-radius:9999px;background:rgba(163,230,53,0.1);padding:6px 12px 6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#A3E635;border:1px solid rgba(163,230,53,0.2);margin-bottom:20px">
+            <span style="width:5px;height:5px;border-radius:50%;background:#A3E635"></span>
+            Agentes prontos
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:24px">
+            <div style="font-size:48px;font-weight:500;color:#fff;letter-spacing:-0.02em;text-align:center;max-width:640px;line-height:1.25;min-height:120px;display:flex;align-items:center;justify-content:center">O que vamos construir?</div>
+            <div style="font-size:16px;color:#A1A1AA;text-align:center;max-width:520px;line-height:1.6">Descreva a feature em linguagem natural e deixe o time de agentes cuidar do resto</div>
+          </div>
+
+          <div style="margin-top:40px;width:100%;max-width:680px;display:flex;flex-direction:column;gap:16px">
+            <textarea placeholder="Ex: criar uma tela de checkout com cupom de desconto..." value="{{ promptText }}" onChange="{{ onPromptChange }}" style="font-size:15px;min-height:140px;padding:18px;border:1px solid #27272A;border-radius:16px;background:#18181B;color:#fff;resize:none;outline:none;line-height:1.6"></textarea>
+            <button onClick="{{ submitPrompt }}" style="align-self:flex-end;padding:13px 22px;font-size:14px;font-weight:600;background:#A3E635;color:#0A0A0A;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px">Enviar para os agentes →</button>
+          </div>
+
+          <div style="width:100%;max-width:680px;margin-top:48px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#71717a">Prompts recentes</div>
+              <a href="#" onClick="{{ goHistory }}" style="font-size:12px;font-weight:600">ver todos</a>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <sc-for list="{{ recentSessions }}" as="s" hint-placeholder-count="2">
+                <div onClick="{{ s.open }}" style="cursor:pointer;padding:16px;border:1px solid #27272A;border-radius:16px;background:#18181B;display:flex;flex-direction:column;gap:8px">
+                  <div style="font-size:14px;color:#fff;font-weight:500;line-height:1.4;min-height:40px;display:flex;align-items:center">{{ s.prompt }}</div>
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <div style="font-size:12px;color:#71717a">{{ s.date }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:#A3E635;text-transform:uppercase">{{ s.statusText }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- EXEC -->
+      <sc-if value="{{ isExec }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding:40px 24px 60px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:500px;border-radius:50%;background:rgba(163,230,53,0.05);filter:blur(120px);pointer-events:none"></div>
+
+          <div style="position:relative;width:100%;max-width:760px;display:flex;align-items:center;gap:12px;margin-bottom:36px">
+            <a href="#" onClick="{{ goHome }}" style="font-size:16px;font-weight:600;color:#fff">←</a>
+            <div style="flex:1;font-size:13px;color:#e4e4e7;background:#18181B;border:1px solid #27272A;border-radius:10px;padding:10px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ activeSession.prompt }}</div>
+          </div>
+
+          <div style="display:inline-flex;align-items:center;gap:6px;border-radius:9999px;background:rgba(163,230,53,0.1);padding:6px 12px 6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#A3E635;border:1px solid rgba(163,230,53,0.2);margin-bottom:16px">
+            <span style="width:5px;height:5px;border-radius:50%;background:#A3E635"></span>
+            Pipeline
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+            <div style="font-size:34px;font-weight:500;color:#fff;letter-spacing:-0.01em;text-align:center;max-width:600px;line-height:1.25;min-height:85px;display:flex;align-items:center;justify-content:center">Orquestrando agentes</div>
+            <div style="font-size:14px;color:#A1A1AA;text-align:center">Clique em um agente para ver a resposta</div>
+          </div>
+
+          <div style="position:relative;width:100%;max-width:800px;height:220px;margin-top:44px">
+            <svg viewBox="0 0 900 220" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" fill="none">
+              <sc-for list="{{ vizAgents }}" as="a" hint-placeholder-count="6">
+                <line x1="{{ a.x }}" y1="40" x2="450" y2="180" stroke="{{ a.trackColor }}" stroke-width="1.5" stroke-linecap="round"></line>
+                <circle r="3.5" fill="{{ a.lineColor }}" opacity="0">
+                  <animateMotion path="{{ a.pathD }}" dur="2.2s" begin="{{ a.delay }}" repeatCount="indefinite"></animateMotion>
+                  <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.15;0.85;1" dur="2.2s" begin="{{ a.delay }}" repeatCount="indefinite"></animate>
+                </circle>
+              </sc-for>
+            </svg>
+
+            <sc-for list="{{ vizAgents }}" as="a" hint-placeholder-count="6">
+              <div onClick="{{ a.select }}" style="position:absolute;top:40px;left:{{ a.leftPct }};transform:translate(-50%,-50%);cursor:pointer;border-radius:12px;padding:1px;background:{{ a.nodeGradient }};box-shadow:{{ a.nodeShadow }};transition:transform .3s;z-index:2" title="{{ a.name }}">
+                <div style="width:52px;height:52px;border-radius:11px;background:#0A0A0A;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:{{ a.selectedBorder }}">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:{{ a.iconColor }}">{{ a.initial }}</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;color:{{ a.labelColor }};animation:{{ a.pulseAnim }}">{{ a.statusLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="position:absolute;top:180px;left:50%;transform:translate(-50%,-50%);z-index:2;border-radius:16px;padding:1px;background:{{ hubGradient }};box-shadow:{{ hubShadow }}">
+              <div style="width:60px;height:60px;border-radius:15px;background:#0A0A0A;display:flex;align-items:center;justify-content:center">
+                <div style="font-size:24px;color:{{ pipelineDotColor }}">⚡</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:100%;max-width:680px;margin-top:44px;border:1px solid #27272A;border-radius:16px;background:#18181B;padding:22px;min-height:130px">
+            <sc-if value="{{ hasSelectedAgent }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                <div style="font-size:15px;font-weight:600;color:#fff">{{ selectedAgent.name }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:{{ selectedAgent.labelColor }}">{{ selectedAgent.statusLabel }}</div>
+              </div>
+              <div style="font-size:12px;color:#71717a;margin-bottom:12px">{{ selectedAgent.role }}</div>
+              <div style="height:1px;background:#27272A;margin-bottom:14px"></div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#71717a;margin-bottom:8px">Resposta do agente</div>
+              <div style="font-size:13px;color:#d4d4d8;line-height:1.6;white-space:pre-wrap">{{ selectedAgent.output }}</div>
+            </sc-if>
+            <sc-if value="{{ hasSelectedAgent }}" hint-placeholder-val="{{ true }}">
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- HISTORY -->
+      <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;padding:56px 24px;display:flex;flex-direction:column;align-items:center">
+          <div style="width:100%;max-width:760px">
+            <div style="font-size:32px;font-weight:500;color:#fff;letter-spacing:-0.01em">Histórico</div>
+            <div style="font-size:14px;color:#A1A1AA;margin-top:6px;margin-bottom:32px">Todos os prompts e resultados enviados aos agentes</div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ allSessions }}" as="s" hint-placeholder-count="3">
+                <div onClick="{{ s.open }}" style="cursor:pointer;padding:18px 20px;border:1px solid #27272A;border-radius:16px;background:#18181B;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <div style="font-size:15px;font-weight:500;color:#fff;line-height:1.4;min-height:42px;display:flex;align-items:center">{{ s.prompt }}</div>
+                    <div style="font-size:12px;color:#71717a">{{ s.date }}</div>
+                  </div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#A3E635;text-transform:uppercase;white-space:nowrap">{{ s.statusText }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- PROFILE -->
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;padding:56px 24px;display:flex;flex-direction:column;align-items:center">
+          <div style="width:100%;max-width:440px">
+            <div style="font-size:32px;font-weight:500;color:#fff;letter-spacing:-0.01em;margin-bottom:32px">Perfil</div>
+            <div style="display:flex;flex-direction:column;gap:18px;align-items:center;border:1px solid #27272A;border-radius:16px;background:#18181B;padding:32px">
+              <image-slot id="avatar-photo-web" shape="circle" style="width:96px;height:96px;border:1px solid #27272A" placeholder="foto"></image-slot>
+              <div style="font-size:12px;color:#71717a">clique para alterar a foto</div>
+              <div style="width:100%;display:flex;flex-direction:column;gap:6px">
+                <label style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#71717a">Nome</label>
+                <input value="Ana Ferreira" style="font-size:15px;padding:13px 14px;border:1px solid #27272A;border-radius:8px;background:#0A0A0A;color:#fff;outline:none"></input>
+              </div>
+              <div style="width:100%;display:flex;flex-direction:column;gap:6px">
+                <label style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#71717a">E-mail</label>
+                <input value="{{ loginEmail }}" style="font-size:15px;padding:13px 14px;border:1px solid #27272A;border-radius:8px;background:#0A0A0A;color:#fff;outline:none"></input>
+              </div>
+              <button onClick="{{ logout }}" style="margin-top:6px;width:100%;padding:13px;font-size:14px;font-weight:600;background:transparent;color:#f87171;border:1px solid #27272A;border-radius:8px;cursor:pointer">Sair da conta</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const AGENT_DEFS = [
+  { id:'po', initial:'PO', name:'PO', role:'Interpreta o pedido e escreve as histórias de usuário', x:150, delay:'0s' },
+  { id:'arch', initial:'AR', name:'Arquiteto', role:'Define a arquitetura técnica e o plano de implementação', x:270, delay:'0.2s' },
+  { id:'dev', initial:'DEV', name:'Dev', role:'Detalha as tarefas de desenvolvimento por camada', x:390, delay:'0.4s' },
+  { id:'coder', initial:'CO', name:'Coder', role:'Escreve o código das funcionalidades', x:510, delay:'0.6s' },
+  { id:'qa', initial:'QA', name:'QA', role:'Testa e valida o que foi implementado', x:630, delay:'0.8s' },
+  { id:'devops', initial:'OP', name:'DevOps', role:'Prepara o deploy e a infraestrutura', x:750, delay:'1s' },
+];
+
+function makeOutput(agentId, prompt) {
+  const p = prompt.length > 60 ? prompt.slice(0, 60) + '…' : prompt;
+  switch (agentId) {
+    case 'po': return 'Histórias de usuário geradas a partir de: "' + p + '".\n\n- Como usuário, quero ' + prompt.split(' ').slice(0,6).join(' ') + '...\n- Critérios de aceite definidos (3)\n- Prioridade: alta';
+    case 'arch': return 'Arquitetura proposta:\n- Frontend: componente novo + rota\n- Backend: endpoint REST + validação\n- Banco: 1 tabela / migração\nDependências mapeadas, sem impacto em serviços existentes.';
+    case 'dev': return 'Plano de implementação:\n1. Criar componente de UI\n2. Implementar endpoint na API\n3. Ajustar schema do banco\n4. Ligar frontend ao backend\nEstimativa: 4 tarefas.';
+    case 'coder': return 'Código gerado:\n- 3 arquivos criados\n- 2 arquivos alterados\n- Testes unitários incluídos\nPull request aberto: feature/' + agentId + '-' + Math.floor(Math.random()*900+100);
+    case 'qa': return 'Testes executados: 12/12 passaram.\nCobertura: 87%.\nNenhum bug crítico encontrado.';
+    case 'devops': return 'Deploy realizado em ambiente de staging.\nPipeline verde ✓\nAguardando aprovação para produção.';
+    default: return '';
+  }
+}
+
+function buildAgents(prompt, allDone) {
+  return AGENT_DEFS.map((a, i) => ({
+    ...a,
+    status: allDone ? 'done' : (i === 0 ? 'running' : 'pending'),
+    output: allDone || i === 0 ? makeOutput(a.id, prompt) : '',
+  }));
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: 'login',
+    loginEmail: '',
+    promptText: '',
+    sessions: [
+      { id: 's2', prompt: 'Corrigir bug de paginação na listagem de produtos', date: '22/08, 16:40', agents: buildAgents('Corrigir bug de paginação na listagem de produtos', true) },
+      { id: 's1', prompt: 'Adicionar carrinho de compras ao e-commerce', date: 'Ontem, 09:15', agents: buildAgents('Adicionar carrinho de compras ao e-commerce', true) },
+    ],
+    activeSessionId: 's1',
+    selectedAgentId: null,
+  };
+
+  componentWillUnmount() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  login = () => this.setState({ screen: 'home', loginEmail: this.state.loginEmail || 'ana.ferreira@empresa.com' });
+  logout = () => { if (this.timer) clearInterval(this.timer); this.setState({ screen: 'login' }); };
+  goHome = () => this.setState({ screen: 'home' });
+  goHistory = () => this.setState({ screen: 'history' });
+  goProfile = () => this.setState({ screen: 'profile' });
+  onEmailChange = (e) => this.setState({ loginEmail: e.target.value });
+  onPromptChange = (e) => this.setState({ promptText: e.target.value });
+
+  openSession = (id) => {
+    if (this.timer) clearInterval(this.timer);
+    const sess = this.state.sessions.find(s => s.id === id);
+    const firstNonPending = sess ? sess.agents.find(a => a.status !== 'pending') : null;
+    this.setState({ activeSessionId: id, screen: 'exec', selectedAgentId: firstNonPending ? firstNonPending.id : null });
+  };
+
+  selectAgent = (agentId) => this.setState({ selectedAgentId: this.state.selectedAgentId === agentId ? null : agentId });
+
+  submitPrompt = () => {
+    const text = (this.state.promptText || '').trim();
+    if (!text) return;
+    const id = 's' + Date.now();
+    const session = { id, prompt: text, date: 'Agora', agents: buildAgents(text, false) };
+    this.setState({
+      sessions: [session, ...this.state.sessions],
+      activeSessionId: id,
+      screen: 'exec',
+      promptText: '',
+      selectedAgentId: 'po',
+    });
+    if (this.timer) clearInterval(this.timer);
+    this.timer = setInterval(() => this.advanceSim(id), 1600);
+  };
+
+  advanceSim = (sessionId) => {
+    this.setState((s) => {
+      const sessions = s.sessions.map((sess) => {
+        if (sess.id !== sessionId) return sess;
+        const agents = sess.agents.slice();
+        const runningIdx = agents.findIndex(a => a.status === 'running');
+        if (runningIdx === -1) return sess;
+        agents[runningIdx] = { ...agents[runningIdx], status: 'done', output: agents[runningIdx].output || makeOutput(agents[runningIdx].id, sess.prompt) };
+        if (runningIdx + 1 < agents.length) {
+          agents[runningIdx + 1] = { ...agents[runningIdx + 1], status: 'running', output: makeOutput(agents[runningIdx + 1].id, sess.prompt) };
+        } else if (this.timer) {
+          clearInterval(this.timer);
+        }
+        return { ...sess, agents };
+      });
+      return { sessions };
+    });
+  };
+
+  statusMeta(status) {
+    if (status === 'done') return { lineColor: '#A3E635', trackColor: 'rgba(163,230,53,0.25)', iconColor: '#A3E635', labelColor: '#A3E635', statusLabel: 'OK', pulseAnim: 'none', nodeGradient: 'linear-gradient(to bottom, rgba(163,230,53,0.6), rgba(163,230,53,0))', nodeShadow: '0 0 24px -6px rgba(163,230,53,0.5)' };
+    if (status === 'running') return { lineColor: '#A3E635', trackColor: 'rgba(163,230,53,0.25)', iconColor: '#A3E635', labelColor: '#A3E635', statusLabel: 'Rodando', pulseAnim: 'pulse 1.2s ease-in-out infinite', nodeGradient: 'linear-gradient(to bottom, rgba(163,230,53,0.8), rgba(163,230,53,0))', nodeShadow: '0 0 30px -6px rgba(163,230,53,0.7)' };
+    return { lineColor: '#52525b', trackColor: 'rgba(255,255,255,0.08)', iconColor: '#52525b', labelColor: '#52525b', statusLabel: 'Espera', pulseAnim: 'none', nodeGradient: 'linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0))', nodeShadow: 'none' };
+  }
+
+  decorateSession(sess) {
+    const agents = sess.agents.map(a => ({ ...a, ...this.statusMeta(a.status) }));
+    const doneCount = agents.filter(a => a.status === 'done').length;
+    const statusText = doneCount === agents.length ? 'Concluído' : doneCount === 0 ? 'Aguardando' : doneCount + '/' + agents.length + ' concluídos';
+    return { ...sess, agents, statusText, open: () => this.openSession(sess.id) };
+  }
+
+  renderVals() {
+    const screen = this.state.screen;
+    const activeSession = this.decorateSession(
+      this.state.sessions.find(s => s.id === this.state.activeSessionId) || this.state.sessions[0]
+    );
+    const active = '#A3E635', inactive = '#A1A1AA';
+    const statuses = activeSession.agents.map(a => a.status);
+    const allDone = statuses.every(s => s === 'done');
+    const anyActive = statuses.some(s => s !== 'pending');
+    const pipelineDotColor = allDone ? '#166534' : anyActive ? '#A3E635' : '#52525b';
+    const hubGradient = allDone ? 'linear-gradient(to bottom, rgba(22,101,52,0.7), rgba(22,101,52,0))' : anyActive ? 'linear-gradient(to bottom, rgba(163,230,53,0.7), rgba(163,230,53,0))' : 'linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0))';
+    const hubShadow = allDone ? '0 0 30px -8px rgba(22,101,52,0.6)' : anyActive ? '0 0 30px -8px rgba(163,230,53,0.6)' : 'none';
+    const vizAgents = activeSession.agents.map(a => {
+      const isSelected = this.state.selectedAgentId === a.id;
+      return {
+        ...a,
+        leftPct: (a.x / 900 * 100).toFixed(1) + '%',
+        pathD: 'M ' + a.x + ' 40 L 450 180',
+        select: () => this.selectAgent(a.id),
+        selectedBorder: isSelected ? '1px solid #A3E635' : '1px solid transparent',
+      };
+    });
+    const selectedAgent = vizAgents.find(a => a.id === this.state.selectedAgentId) || null;
+    return {
+      isLogin: screen === 'login',
+      notLogin: screen !== 'login',
+      isHome: screen === 'home',
+      isExec: screen === 'exec',
+      isHistory: screen === 'history',
+      isProfile: screen === 'profile',
+      loginEmail: this.state.loginEmail,
+      onEmailChange: this.onEmailChange,
+      login: this.login,
+      logout: this.logout,
+      promptText: this.state.promptText,
+      onPromptChange: this.onPromptChange,
+      submitPrompt: this.submitPrompt,
+      goHome: this.goHome,
+      goHistory: this.goHistory,
+      goProfile: this.goProfile,
+      activeSession,
+      vizAgents,
+      pipelineDotColor,
+      hubGradient,
+      hubShadow,
+      hasSelectedAgent: !!selectedAgent,
+      selectedAgent: selectedAgent || { name: '', role: '', output: 'Selecione um agente no diagrama acima para ver a resposta.', labelColor: '#71717a', statusLabel: '' },
+      recentSessions: this.state.sessions.slice(0, 2).map(s => this.decorateSession(s)),
+      allSessions: this.state.sessions.map(s => this.decorateSession(s)),
+      homeTabColor: screen === 'home' || screen === 'exec' ? '#fff' : inactive,
+      homeTabBg: screen === 'home' || screen === 'exec' ? '#18181B' : 'transparent',
+      historyTabColor: screen === 'history' ? '#fff' : inactive,
+      historyTabBg: screen === 'history' ? '#18181B' : 'transparent',
+      profileTabColor: screen === 'profile' ? active : '#3f3f46',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -53,6 +53,23 @@ stateDiagram-v2
 7. Quando todas as histórias forem aprovadas, o `run` termina e publica os
    artefatos. Limites de custo ou tentativas levam a intervenção humana.
 
+### Contexto persistente por projeto
+
+`project` é a unidade persistente: possui um único workspace, contexto resumido,
+mensagens e várias runs. `run` continua sendo a unidade imutável de auditoria.
+Uma mensagem nova cria uma nova run no mesmo projeto, que reutiliza o workspace
+existente em vez de copiar o template novamente.
+
+```mermaid
+flowchart LR
+    M1[Primeira mensagem] --> P[Project]
+    P --> R1[Run 1: cria workspace]
+    M2[Nova mensagem] --> P
+    P --> R2[Run 2: reutiliza workspace]
+    R1 --> A1[Auditoria da run]
+    R2 --> A2[Auditoria da run]
+```
+
 ## 3. Camadas e dependências
 
 ```text
@@ -301,6 +318,12 @@ microsserviços por agente. Ambos aumentariam a operação antes de existir dema
 | Método | Rota | Resultado |
 |---|---|---|
 | `POST` | `/runs` | Cria execução e devolve `202` com `run_id`. |
+| `POST` | `/projects` | Cria projeto, primeira mensagem e primeira run. |
+| `GET` | `/projects` | Lista projetos resumidamente. |
+| `GET` | `/projects/{project_id}` | Retorna o contexto e dados do projeto. |
+| `POST` | `/projects/{project_id}/messages` | Persiste uma nova instrução e inicia uma run de continuação. |
+| `GET` | `/projects/{project_id}/messages` | Histórico paginado de mensagens. |
+| `GET` | `/projects/{project_id}/runs` | Runs do projeto. |
 | `GET` | `/runs/{run_id}` | Estado, progresso e totais. |
 | `GET` | `/runs/{run_id}/events` | Timeline paginada. |
 | `GET` | `/runs/{run_id}/calls` | Resumo paginado das chamadas. |

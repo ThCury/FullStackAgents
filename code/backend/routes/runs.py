@@ -15,15 +15,19 @@ def _service(request: Request):
     return request.app.state.container.run_service
 
 
+def _project_service(request: Request):
+    return request.app.state.container.project_service
+
+
 @router.post("/runs", status_code=status.HTTP_202_ACCEPTED)
 def create_run(
     command: CreateRunCommand, background_tasks: BackgroundTasks, request: Request
 ) -> dict:
-    service = _service(request)
-    run = service.create(command)
-    background_tasks.add_task(service.execute, run["_id"])
+    run = _project_service(request).create_legacy_run(command)
+    background_tasks.add_task(_service(request).execute, run["_id"])
     return {
         "run_id": run["_id"],
+        "project_id": run["project_id"],
         "status": run["status"],
         "brasil_datetime": run["brasil_datetime"],
     }

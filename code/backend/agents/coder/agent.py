@@ -55,7 +55,14 @@ class CoderAgent(PromptedAgent):
         auditor: AgentAuditor,
     ) -> tuple[ImplementationReport, list[dict[str, str]], LoopOutcome]:
         toolset = WorkspaceToolset(workspace_manager, workspace, writable=True)
-        loop = AgentLoop(self._llm, auditor, toolset, self._max_iterations)
+        loop = AgentLoop(
+            self._llm,
+            auditor,
+            toolset,
+            self._max_iterations,
+            self._max_retries,
+            self._retry_base_delay_seconds,
+        )
         outcome = loop.run(self.build_request(backlog, plan, template_manifest))
         try:
             report = ImplementationReport.model_validate(outcome.as_json())

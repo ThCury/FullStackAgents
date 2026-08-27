@@ -44,7 +44,14 @@ class DeveloperAgent(PromptedAgent):
         auditor: AgentAuditor,
     ) -> tuple[DevelopmentPlan, LoopOutcome]:
         toolset = WorkspaceToolset(workspace_manager, workspace, writable=False)
-        loop = AgentLoop(self._llm, auditor, toolset, self._max_iterations)
+        loop = AgentLoop(
+            self._llm,
+            auditor,
+            toolset,
+            self._max_iterations,
+            self._max_retries,
+            self._retry_base_delay_seconds,
+        )
         outcome = loop.run(self.build_request(backlog, template_manifest))
         try:
             plan = DevelopmentPlan.model_validate(outcome.as_json())

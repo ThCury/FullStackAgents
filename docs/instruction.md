@@ -124,6 +124,67 @@ timeline. O endpoint `/audit` também retorna somente a auditoria completa.
 `GET /runs` lista todas as runs de forma ainda mais enxuta: identificador, status,
 prévia de até 160 caracteres do prompt, solicitante e horários em Brasília.
 
+## Criar e continuar um projeto
+
+Para manter o mesmo código e contexto entre pedidos, use projetos. A primeira
+mensagem cria o workspace; as próximas reutilizam esse mesmo workspace:
+
+```powershell
+$body = @{
+  name = "calculadora-lucro"
+  prompt = "Crie uma calculadora de lucro líquido."
+} | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/projects" `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($body))
+```
+
+Guarde o `project_id` retornado. Para continuar:
+
+```powershell
+$message = @{ content = "Adicione uma explicação visual do lucro." } | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/projects/SEU_PROJECT_ID/messages" `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($message))
+```
+
+Consulte o projeto, suas mensagens e suas runs:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/projects/SEU_PROJECT_ID"
+Invoke-RestMethod "http://127.0.0.1:8000/projects/SEU_PROJECT_ID/messages"
+Invoke-RestMethod "http://127.0.0.1:8000/projects/SEU_PROJECT_ID/runs"
+```
+
+### Repetir uma run que falhou
+
+Erros temporários do provedor (`429` e `5xx`, incluindo `503`) são repetidos
+automaticamente na mesma execução: até 3 novas tentativas, esperando 2, 4 e 8
+segundos. O PO, ferramentas já usadas e workspace não são reiniciados.
+
+Se todas as tentativas falharem, repita manualmente a run pelo mesmo endpoint de
+mensagens, sem criar uma mensagem nova:
+
+```powershell
+$retry = @{ retry_run_id = "RUN_FALHADA" } | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/projects/SEU_PROJECT_ID/messages" `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($retry))
+```
+
+A nova run recebe `retry_of_run_id`, reutiliza o workspace do projeto e aproveita
+o backlog já produzido pelo PO. As leituras de arquivos do DEV serão refeitas,
+pois a conversa com o Gemini anterior foi encerrada pelo provedor.
+
 No fluxo atual, a run executa `PO → DEV → CODER`.
 
 1. O **PO** transforma o pedido em requisitos e histórias. Se o pedido exigir mais

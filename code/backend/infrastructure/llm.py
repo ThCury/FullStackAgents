@@ -44,12 +44,12 @@ class FakeStreamingLLM:
     def _respond(self, request: LLMRequest) -> tuple[str, list[ToolCall]]:
         turns = len(request.history)
         if request.role == "DEVELOPER":
-            return self._developer(turns)
+            return self._developer(turns, request)
         if request.role == "CODER":
-            return self._coder(turns)
+            return self._coder(turns, request)
         return json.dumps(self._backlog(request), ensure_ascii=False), []
 
-    def _developer(self, turns: int) -> tuple[str, list[ToolCall]]:
+    def _developer(self, turns: int, request: LLMRequest) -> tuple[str, list[ToolCall]]:
         if turns == 0:
             return "", [ToolCall(id="tc_1", name="list_files", arguments={})]
         if turns == 2:
@@ -60,6 +60,12 @@ class FakeStreamingLLM:
                     arguments={"path": "docs/agent-manifest.md"},
                 )
             ]
+        existing_note = any(
+            "docs/nota-do-coder.md" in result.content
+            for message in request.history
+            for result in message.tool_results
+        )
+        action = "Atualizar" if existing_note else "Criar"
         plan = {
             "summary": "Plano inicial de implementação a partir do template.",
             "architecture_decisions": [
@@ -72,13 +78,13 @@ class FakeStreamingLLM:
             "implementation_steps": [
                 {
                     "id": "ST-001",
-                    "description": "Documentar a decisão de arquitetura no manifesto.",
+                    "description": f"{action} a nota de implementação do projeto.",
                     "story_ids": ["US-001"],
-                    "files": ["docs/agent-manifest.md"],
+                    "files": ["docs/nota-do-coder.md"],
                 }
             ],
-            "files_to_create": ["docs/nota-do-coder.md"],
-            "files_to_change": ["docs/agent-manifest.md"],
+            "files_to_create": [] if existing_note else ["docs/nota-do-coder.md"],
+            "files_to_change": ["docs/nota-do-coder.md"] if existing_note else [],
             "files_to_delete": [],
             "new_dependencies": [],
             "validation_commands": ["docker compose run --rm frontend npm run build"],
@@ -87,7 +93,7 @@ class FakeStreamingLLM:
         }
         return json.dumps(plan, ensure_ascii=False), []
 
-    def _coder(self, turns: int) -> tuple[str, list[ToolCall]]:
+    def _coder(self, turns: int, request: LLMRequest) -> tuple[str, list[ToolCall]]:
         if turns == 0:
             return "", [
                 ToolCall(
@@ -99,9 +105,11 @@ class FakeStreamingLLM:
                     },
                 )
             ]
+        changes_note = '"files_to_change": ["docs/nota-do-coder.md"]' in request.prompt
+        action = "update" if changes_note else "create"
         report = {
             "summary": "Nota de implementação criada conforme o plano.",
-            "changes": [{"path": "docs/nota-do-coder.md", "action": "create"}],
+            "changes": [{"path": "docs/nota-do-coder.md", "action": action}],
             "steps_completed": ["ST-001"],
             "steps_skipped": [],
             "validation_commands": ["docker compose run --rm frontend npm run build"],

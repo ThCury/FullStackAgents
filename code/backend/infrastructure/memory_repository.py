@@ -26,6 +26,13 @@ class InMemoryRunRepository:
         )
         return deepcopy(documents)
 
+    def list_by_project(self, project_id: str) -> list[dict]:
+        return [
+            document
+            for document in self.list_runs()
+            if document.get("project_id") == project_id
+        ]
+
     def mark_running(self, run_id: str) -> None:
         self._documents[run_id]["status"] = RunStatus.RUNNING.value
 
@@ -61,6 +68,9 @@ class InMemoryRunRepository:
 
     def update_totals(self, run_id: str, totals: dict) -> None:
         self._documents[run_id]["audit"]["totals"] = deepcopy(totals)
+
+    def set_backlog_snapshot(self, run_id: str, backlog: dict) -> None:
+        self._documents[run_id]["backlog_snapshot"] = deepcopy(backlog)
 
     def finish_run(self, run_id: str, output: ProductBacklog, totals: dict) -> None:
         document = self._documents[run_id]

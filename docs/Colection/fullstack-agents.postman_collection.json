@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "d27e55ad-337d-4ae6-8e18-fd36c28fc6e1",
-    "name": "FullStack Agents - PO API",
-    "description": "Requests do backend inicial: Product Owner com LangGraph e auditoria.",
+    "name": "FullStack Agents API",
+    "description": "Projetos persistentes, runs auditáveis e agentes LangGraph.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,6 +13,11 @@
     },
     {
       "key": "run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
       "value": "",
       "type": "string"
     }
@@ -97,6 +102,96 @@
             "header": [],
             "url": "{{base_url}}/runs/{{run_id}}/audit"
           }
+        }
+      ]
+    },
+    {
+      "name": "Projetos",
+      "item": [
+        {
+          "name": "Criar projeto e primeira run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set('project_id', response.project_id);",
+                  "pm.collectionVariables.set('run_id', response.run_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"calculadora-lucro\",\n  \"prompt\": \"Crie uma calculadora de lucro líquido.\",\n  \"requested_by_id\": \"thiago\",\n  \"requested_by_name\": \"Thiago\"\n}"
+            },
+            "url": "{{base_url}}/projects"
+          }
+        },
+        {
+          "name": "Enviar mensagem para continuar projeto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set('run_id', response.run_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Adicione uma explicação visual do lucro.\",\n  \"requested_by_id\": \"thiago\",\n  \"requested_by_name\": \"Thiago\"\n}"
+            },
+            "url": "{{base_url}}/projects/{{project_id}}/messages"
+          }
+        },
+        {
+          "name": "Repetir run falhada do projeto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();",
+                  "pm.collectionVariables.set('run_id', response.run_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"retry_run_id\": \"{{run_id}}\"\n}"
+            },
+            "url": "{{base_url}}/projects/{{project_id}}/messages"
+          }
+        },
+        {
+          "name": "Consultar projeto",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/projects/{{project_id}}" }
+        },
+        {
+          "name": "Listar mensagens do projeto",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/projects/{{project_id}}/messages" }
+        },
+        {
+          "name": "Listar runs do projeto",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/projects/{{project_id}}/runs" }
         }
       ]
     }

@@ -1,0 +1,387 @@
+/* ---------- Login ---------- */
+
+.login {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  position: relative;
+  overflow: hidden;
+  background: var(--glow), var(--bg);
+}
+
+.login__card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: clamp(26px, 6vw, 40px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.login__title {
+  font-size: clamp(24px, 6vw, 28px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.login__subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.login__footnote {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ---------- Layout de páginas ---------- */
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 5vw, 56px) clamp(16px, 4vw, 24px) 48px;
+}
+
+.page__inner {
+  width: 100%;
+  max-width: var(--shell-max);
+  display: flex;
+  flex-direction: column;
+}
+
+.page__title {
+  font-size: clamp(22px, 5vw, 32px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.page__subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stack--lg {
+  gap: 20px;
+}
+
+/* ---------- Home ---------- */
+
+.home {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(28px, 8vw, 80px) clamp(16px, 4vw, 24px) 60px;
+}
+
+.home__headline {
+  font-size: clamp(26px, 6vw, 48px);
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  text-align: center;
+  max-width: 640px;
+  line-height: 1.25;
+  margin: 20px 0 0;
+}
+
+.home__lede {
+  font-size: clamp(14px, 2.5vw, 16px);
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 520px;
+  line-height: 1.6;
+  margin: 20px 0 0;
+}
+
+.composer {
+  margin-top: clamp(24px, 5vw, 40px);
+  width: 100%;
+  max-width: var(--composer-max);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.composer__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.composer__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.home__recent {
+  width: 100%;
+  max-width: var(--composer-max);
+  margin-top: clamp(32px, 6vw, 48px);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 639px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .composer__actions .btn {
+    width: 100%;
+  }
+}
+
+/* ---------- Cartão de projeto ---------- */
+
+.project-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.project-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-card__name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.project-card__date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.project-card--tile {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 16px;
+}
+
+.project-card--tile .project-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---------- Execução ---------- */
+
+.execution {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(20px, 4vw, 40px) clamp(16px, 4vw, 24px) 60px;
+  position: relative;
+  overflow: hidden;
+  background: var(--glow), var(--bg);
+}
+
+.execution__inner {
+  position: relative;
+  width: 100%;
+  max-width: var(--shell-max);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.execution__bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: clamp(20px, 4vw, 36px);
+}
+
+.execution__back {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.execution__prompt {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: #e4e4e7;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.execution__headline {
+  font-size: clamp(22px, 5vw, 34px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: center;
+  max-width: 600px;
+  line-height: 1.25;
+  margin: 16px 0 0;
+}
+
+.execution__hint {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 12px 0 0;
+}
+
+.execution__agents {
+  width: 100%;
+  max-width: var(--composer-max);
+  margin-top: clamp(24px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.execution__followup {
+  width: 100%;
+  max-width: var(--composer-max);
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: var(--composer-max);
+  margin-top: 24px;
+}
+
+.metric {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.metric__value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Diagrama SVG só faz sentido em telas largas; no mobile ficam os cartões. */
+.only-desktop {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .only-desktop {
+    display: block;
+  }
+
+  .only-mobile {
+    display: none;
+  }
+}
+
+/* ---------- Perfil ---------- */
+
+.profile__card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: clamp(22px, 5vw, 32px);
+}
+
+.profile__avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.profile__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.profile .page__inner {
+  max-width: 440px;
+}

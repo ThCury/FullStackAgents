@@ -32,11 +32,15 @@ class PromptedAgent:
         model: str,
         effort: str | None,
         max_iterations: int = 24,
+        max_retries: int = 3,
+        retry_base_delay_seconds: float = 2.0,
     ) -> None:
         self._llm = llm
         self._model = model
         self._effort = effort
         self._max_iterations = max_iterations
+        self._max_retries = max_retries
+        self._retry_base_delay_seconds = retry_base_delay_seconds
         self.system_prompt = self.prompt_path().read_text(encoding="utf-8")
         self.version = self._version_of(self.system_prompt)
 

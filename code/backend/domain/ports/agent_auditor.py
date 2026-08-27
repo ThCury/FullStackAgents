@@ -12,7 +12,9 @@ class AgentAuditor(Protocol):
     orquestra decide como gravar.
     """
 
-    def start_call(self, request: LLMRequest, iteration: int) -> str:
+    def start_call(
+        self, request: LLMRequest, iteration: int, retry_attempt: int = 1
+    ) -> str:
         """Abre a chamada e devolve o call_id que a identifica."""
         ...
 
@@ -37,7 +39,7 @@ class NullAgentAuditor:
     def __init__(self) -> None:
         self.calls = 0
 
-    def start_call(self, request: LLMRequest, iteration: int) -> str:
+    def start_call(self, request: LLMRequest, iteration: int, retry_attempt: int = 1) -> str:
         self.calls += 1
         return f"call_{iteration}"
 

@@ -30,7 +30,11 @@ class BackendConfig:
     output_token_price_per_million: Decimal = Decimal("0")
     price_version: str = "local-config-v1"
     template_root: Path = Path(__file__).resolve().parents[1] / "template"
+    # Qualquer porta local: o Vite pula para 5174, 5175... se a 5173 estiver ocupada.
+    cors_allow_origin_regex: str = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
     max_tool_iterations: int = 24
+    max_llm_retries: int = 3
+    retry_base_delay_seconds: float = 2.0
 
 
 # Modelos são uma decisão versionada no código, não uma configuração secreta.

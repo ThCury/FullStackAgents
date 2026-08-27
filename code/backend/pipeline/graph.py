@@ -14,6 +14,7 @@ from domain.models.development_plan import DevelopmentPlan
 from domain.models.implementation_report import ImplementationReport
 from domain.models.product_backlog import ProductBacklog
 from domain.models.run_totals import RunTotals
+from domain.ports.project_repository import ProjectRepository
 from domain.ports.run_repository import RunRepository
 from domain.ports.workspace_manager import WorkspaceManager
 from pipeline.timeline_auditor import TimelineAuditor
@@ -27,6 +28,9 @@ class GraphState(TypedDict, total=False):
     report: ImplementationReport
     workspace: dict[str, str]
     totals: list[RunTotals]
+    project_id: str | None
+    mode: str
+    project_context: dict
 
 
 class FullstackGraph:
@@ -38,6 +42,7 @@ class FullstackGraph:
         product_owner: ProductOwnerAgent,
         developer: DeveloperAgent,
         coder: CoderAgent,
+        project_repository: ProjectRepository | None,
         workspace_manager: WorkspaceManager,
         cost_calculator: CostCalculator,
         stream_persist_interval_ms: int,
@@ -46,15 +51,22 @@ class FullstackGraph:
         self._product_owner = product_owner
         self._developer = developer
         self._coder = coder
+        self._project_repository = project_repository
         self._workspace_manager = workspace_manager
         self._cost_calculator = cost_calculator
         self._stream_persist_interval_seconds = stream_persist_interval_ms / 1000
 
         builder = StateGraph(GraphState)
+        builder.add_node("prepare", self._prepare)
         builder.add_node("specify", self._specify)
         builder.add_node("plan", self._plan)
         builder.add_node("implement", self._implement)
-        builder.add_edge(START, "specify")
+        builder.add_edge(START, "prepare")
+        builder.add_conditional_edges(
+            "prepare",
+            self._after_prepare,
+            {"specify": "specify", "plan": "plan"},
+        )
         builder.add_conditional_edges(
             "specify",
             self._after_specify,
@@ -69,10 +81,21 @@ class FullstackGraph:
 
     # --- nós ---------------------------------------------------------------
 
+    @staticmethod
+    def _prepare(state: GraphState) -> GraphState:
+        return {}
+
+    @staticmethod
+    def _after_prepare(state: GraphState) -> str:
+        return "plan" if state.get("backlog") else "specify"
+
     def _specify(self, state: GraphState) -> GraphState:
         run_id = state["run_id"]
         auditor = self._auditor_for(run_id, "po", self._product_owner)
-        backlog, _ = self._product_owner.run(state["user_prompt"], auditor)
+        project_context = self._load_project_context(state.get("project_id"))
+        backlog, _ = self._product_owner.run(
+            self._prompt_with_project_context(state["user_prompt"], project_context), auditor
+        )
 
         if not backlog.accepted:
             self._append_flow_event(
@@ -84,7 +107,12 @@ class FullstackGraph:
                 "PRODUCT_OWNER",
             )
             self._repository.finish_run(run_id, backlog, auditor.totals.model_dump())
-            return {"backlog": backlog, "totals": [auditor.totals]}
+            self._update_project_context(state.get("project_id"), run_id, backlog)
+            return {
+                "backlog": backlog,
+                "totals": [auditor.totals],
+                "project_context": project_context,
+            }
 
         self._append_flow_event(
             run_id,
@@ -94,7 +122,12 @@ class FullstackGraph:
             "po",
             "PRODUCT_OWNER",
         )
-        return {"backlog": backlog, "totals": [auditor.totals]}
+        self._repository.set_backlog_snapshot(run_id, backlog.model_dump())
+        return {
+            "backlog": backlog,
+            "totals": [auditor.totals],
+            "project_context": project_context,
+        }
 
     @staticmethod
     def _after_specify(state: GraphState) -> str:
@@ -107,14 +140,16 @@ class FullstackGraph:
         if run is None:
             raise KeyError(f"Run não encontrado: {run_id}")
 
-        workspace = self._workspace_manager.create_project(
-            run_id, run["input"].get("project_name", "novo-projeto")
-        )
+        workspace, created = self._workspace_for(state, run)
         self._append_artifact(run_id, "workspace", workspace)
         self._append_flow_event(
             run_id,
-            "DEV_WORKSPACE_CREATED",
-            "Workspace isolado criado a partir do template de referência.",
+            "DEV_WORKSPACE_CREATED" if created else "DEV_WORKSPACE_REUSED",
+            (
+                "Workspace isolado criado a partir do template de referência."
+                if created
+                else "Workspace persistente do projeto reutilizado."
+            ),
             True,
             "dev",
             "DEVELOPER",
@@ -129,7 +164,7 @@ class FullstackGraph:
             auditor,
         )
         plan_path = self._workspace_manager.write_artifact(
-            workspace, "development-plan.json", plan.model_dump_json(indent=2)
+            workspace, f"{run_id}/development-plan.json", plan.model_dump_json(indent=2)
         )
         self._append_artifact(
             run_id,
@@ -167,7 +202,7 @@ class FullstackGraph:
             auditor,
         )
         report_path = self._workspace_manager.write_artifact(
-            workspace, "implementation-report.json", report.model_dump_json(indent=2)
+            workspace, f"{run_id}/implementation-report.json", report.model_dump_json(indent=2)
         )
         divergences = report.divergence_from(writes)
         self._append_artifact(
@@ -206,6 +241,13 @@ class FullstackGraph:
             state["backlog"],
             self._cost_calculator.combine(*totals).model_dump(),
         )
+        self._update_project_context(
+            state.get("project_id"),
+            run_id,
+            state["backlog"],
+            state["plan"],
+            state["report"],
+        )
         self._append_flow_event(
             run_id,
             "RUN_COMPLETED",
@@ -215,6 +257,73 @@ class FullstackGraph:
             "CODER",
         )
         return {"report": report, "totals": totals}
+
+    def _workspace_for(self, state: GraphState, run: dict) -> tuple[dict, bool]:
+        project_id = state.get("project_id")
+        if project_id and self._project_repository:
+            project = self._project_repository.get(project_id)
+            if project is None:
+                raise KeyError(f"Projeto não encontrado: {project_id}")
+            if project.get("workspace"):
+                return self._workspace_manager.open_project_workspace(project["workspace"]), False
+            workspace = self._workspace_manager.create_project(
+                state["run_id"], run["input"].get("project_name", "novo-projeto")
+            )
+            self._project_repository.set_workspace(project_id, workspace)
+            return workspace, True
+        return (
+            self._workspace_manager.create_project(
+                state["run_id"], run["input"].get("project_name", "novo-projeto")
+            ),
+            True,
+        )
+
+    def _load_project_context(self, project_id: str | None) -> dict:
+        if not project_id or not self._project_repository:
+            return {}
+        project = self._project_repository.get(project_id)
+        if project is None:
+            raise KeyError(f"Projeto não encontrado: {project_id}")
+        return project.get("context", {})
+
+    @staticmethod
+    def _prompt_with_project_context(prompt: str, context: dict) -> str:
+        if not context or not context.get("backlog"):
+            return prompt
+        return (
+            "Contexto do projeto existente:\n"
+            f"Resumo: {context.get('summary', '')}\n"
+            f"Backlog vigente: {context['backlog']}\n\n"
+            "Nova instrução do usuário:\n"
+            f"{prompt}"
+        )
+
+    def _update_project_context(
+        self,
+        project_id: str | None,
+        run_id: str,
+        backlog: ProductBacklog,
+        plan: DevelopmentPlan | None = None,
+        report: ImplementationReport | None = None,
+    ) -> None:
+        if not project_id or not self._project_repository:
+            return
+        previous = self._project_repository.get(project_id)
+        if previous is None:
+            return
+        self._project_repository.update_context(
+            project_id,
+            {
+                "summary": report.summary if report else backlog.summary,
+                "decisions": (
+                    [decision.model_dump() for decision in plan.architecture_decisions]
+                    if plan
+                    else previous["context"]["decisions"]
+                ),
+                "backlog": backlog.model_dump(),
+                "last_run_id": run_id,
+            },
+        )
 
     # --- auditoria ---------------------------------------------------------
 

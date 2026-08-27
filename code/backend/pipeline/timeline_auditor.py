@@ -51,7 +51,7 @@ class TimelineAuditor:
             return self._cost_calculator.totals(0, 0, 0, 0)
         return self._cost_calculator.combine(*self._collected)
 
-    def start_call(self, request: LLMRequest, iteration: int) -> str:
+    def start_call(self, request: LLMRequest, iteration: int, retry_attempt: int = 1) -> str:
         call_id = f"call_{uuid4().hex}"
         self.iterations = iteration
         self._last_persist = monotonic()
@@ -64,6 +64,7 @@ class TimelineAuditor:
                 "call_id": call_id,
                 "attempt": 1,
                 "iteration": iteration,
+                "retry_attempt": retry_attempt,
                 "agent": {"id": self._agent_id, "role": self._role, "version": self._version},
                 "request": {
                     "from": {"type": "agent", "id": self._agent_id, "role": self._role},
