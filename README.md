@@ -7,10 +7,32 @@ com backend Python e persistência/auditoria em MongoDB.
 O DEV pode criar um projeto novo ou evoluir um projeto existente a partir de uma
 cópia isolada e auditável.
 
-## Estado atual
+## Executar a aplicação completa
 
-O projeto está na fase de definição da arquitetura e dos requisitos. A documentação
-é a fonte de verdade para a implementação inicial.
+O frontend, a API, o MongoDB e o Prometheus fazem parte da mesma stack Docker.
+Crie o arquivo de segredos e informe sua chave Gemini:
+
+```powershell
+Copy-Item code\backend\.env.example code\backend\.env
+```
+
+Depois, entre na pasta executável do projeto e execute:
+
+```powershell
+cd code
+docker compose up -d --build
+docker compose ps
+```
+
+Serviços disponíveis:
+
+- aplicação web: `http://localhost:5173`;
+- Swagger da API: `http://localhost:8000/docs`;
+- métricas da API: `http://localhost:8000/metrics`;
+- Prometheus: `http://localhost:9090`.
+
+Os dados do MongoDB, os workspaces gerados e as séries do Prometheus ficam em
+volumes Docker. `docker compose down` para a stack sem apagar esses dados.
 
 ## Documentação
 

@@ -1,38 +1,45 @@
-# Instruções para rodar o backend
+# Instruções para executar a aplicação
 
 ## Pré-requisitos
 
-- Python 3.11 ou superior;
+- Docker Desktop;
 - uma chave Gemini no arquivo `code/backend/.env`:
 
 ```dotenv
 GEMINI_API_KEY=sua_chave
 
 # Pasta local exclusiva onde o DEV criará projetos por run.
-DEV_WORKSPACE_ROOT=C:\FullStackAgents\workspaces
+# No Docker, este caminho é definido automaticamente como /workspaces.
 ```
 
 O provider e modelo de cada agente são versionados em
 `code/backend/config.py`, no mapa `AGENT_LLM_PROFILES`. O `.env` contém apenas
-segredos e caminhos locais: `DEV_WORKSPACE_ROOT` não deve apontar para a raiz de
-um repositório existente, pois o DEV cria uma pasta nova para cada run.
+segredos. Para uso sem Docker, `DEV_WORKSPACE_ROOT` não deve apontar para a raiz
+de um repositório existente, pois o DEV cria uma pasta nova para cada run.
 
-## Banco de dados — MongoDB
+## Subir toda a stack
 
-As runs são persistidas no MongoDB. Sem o banco em execução, a API não sobe; isso
-evita executar por engano com dados apenas em memória.
-
-Instale e abra o Docker Desktop. Em seguida, no PowerShell, na raiz do repositório:
+Na raiz do repositório, prepare o segredo e entre na pasta `code`, onde vive toda
+a stack executável:
 
 ```powershell
-cd code\backend
-docker compose up -d
+Copy-Item code\backend\.env.example code\backend\.env
+# Edite code\backend\.env e informe GEMINI_API_KEY.
+cd code
+docker compose up -d --build
 docker compose ps
 ```
 
-O status do serviço `mongo` deve aparecer como `running`. Os dados ficam no volume
-Docker `mongo_data`, na base `fullstack_agents` e na coleção `runs`; eles continuam
-existindo ao parar e iniciar o container novamente.
+Esse único Compose inicia:
+
+- `frontend`: React compilado e servido pelo Nginx em `http://localhost:5173`;
+- `backend`: FastAPI em `http://localhost:8000`;
+- `mongo`: persistência interna, sem exposição de porta no host;
+- `prometheus`: monitoramento em `http://localhost:9090`.
+
+O frontend encaminha `/api/*` para o backend pela rede interna do Docker. MongoDB,
+workspaces dos agentes e Prometheus usam volumes próprios e continuam disponíveis
+depois de `docker compose down`.
 
 Se surgir um erro que cite `dockerDesktopLinuxEngine`, o Docker Desktop ainda não
 está aberto ou não terminou de iniciar. Abra o aplicativo **Docker Desktop**, aguarde
@@ -42,51 +49,45 @@ o status *Engine running* e valide no PowerShell:
 docker info
 ```
 
-Depois execute novamente `docker compose up -d`, sempre dentro de
-`code\backend`, onde está o arquivo `docker-compose.yml`.
+Depois execute novamente `docker compose up -d`, dentro de `code`, onde está o
+arquivo `compose.yaml`.
 
-O comando acima sobe todos os serviços definidos no projeto. Hoje há somente o
-container `mongo`; quando a API, workers ou outras ferramentas forem
-containerizados, eles serão adicionados à seção `services` desse mesmo arquivo e
-subirão pelo mesmo comando.
-
-Para consultar os logs caso o Mongo não inicie:
+Para consultar os logs:
 
 ```powershell
-docker compose logs mongo
+docker compose logs -f backend
+docker compose logs -f prometheus
 ```
 
-Para parar somente o banco, preservando os dados:
+Para parar tudo preservando os dados:
 
 ```powershell
-docker compose stop mongo
+docker compose down
 ```
 
-O endereço, nome da base e tipo de persistência são configurações versionadas em
-`code/backend/config.py` (`BACKEND_CONFIG`). O `.env` continua reservado apenas às
-chaves de API.
+Use `docker compose down -v` somente quando também quiser apagar banco, workspaces
+e histórico de métricas.
 
-## Rodar a API
+## Prometheus
 
-No PowerShell:
+O backend publica contadores e histogramas em `GET /metrics`. O Prometheus coleta
+esse endpoint a cada 15 segundos. Em `http://localhost:9090/targets`, o target
+`fullstack-agents-api` deve aparecer como `UP`.
 
-```powershell
-cd code\backend
-.\.venv\Scripts\Activate.ps1
-python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
+Exemplos de consultas:
+
+```promql
+fullstack_agents_http_requests_total
+rate(fullstack_agents_http_requests_total[5m])
+histogram_quantile(0.95, sum by (le, path) (rate(fullstack_agents_http_request_duration_seconds_bucket[5m])))
 ```
 
-Abra `http://127.0.0.1:8000/docs` para a documentação interativa.
+## API
 
-Confira `http://127.0.0.1:8000/health`. O campo `persistence` deve retornar
+Abra `http://localhost:8000/docs` para a documentação interativa.
+
+Confira `http://localhost:8000/health`. O campo `persistence` deve retornar
 `mongo`.
-
-Se a porta `8000` estiver ocupada, use a porta `8010` e atualize a variável
-`base_url` da coleção Postman:
-
-```powershell
-python -m uvicorn main:app --reload --host 127.0.0.1 --port 8010
-```
 
 ## Testar uma run
 

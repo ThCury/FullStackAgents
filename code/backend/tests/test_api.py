@@ -30,6 +30,9 @@ def test_health_and_po_run(monkeypatch, tmp_path: Path) -> None:
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["persistence"] == "memory"
+        metrics = client.get("/metrics")
+        assert metrics.status_code == 200
+        assert "fullstack_agents_http_requests_total" in metrics.text
         response = client.post("/runs", json={"prompt": "Quero uma agenda para consultório."})
         assert response.status_code == 202
         run_id = response.json()["run_id"]

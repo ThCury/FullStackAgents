@@ -7,6 +7,17 @@ topbar + diagrama SVG no desktop, tab bar + cartões expansíveis no mobile
 
 ## Rodando
 
+O fluxo recomendado sobe o projeto inteiro a partir da pasta `code`:
+
+```bash
+docker compose up -d --build
+```
+
+O frontend fica em `http://localhost:5173` e usa o proxy Nginx `/api` para falar
+com o backend dentro da stack.
+
+Para desenvolvimento isolado do frontend:
+
 ```bash
 npm install
 npm run dev

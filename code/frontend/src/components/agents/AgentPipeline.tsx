@@ -32,8 +32,6 @@ export function AgentPipeline({
     : active
       ? '0 0 30px -8px rgba(163,230,53,0.6)'
       : 'none'
-  const hubColor = finished ? '#166534' : active ? '#a3e635' : '#52525b'
-
   return (
     <div className="pipeline only-desktop">
       <svg viewBox="0 0 900 220" className="pipeline__svg" fill="none" aria-hidden="true">
@@ -106,8 +104,8 @@ export function AgentPipeline({
       })}
 
       <div className="pipeline__hub" style={{ background: hubGradient, boxShadow: hubShadow }}>
-        <div className="pipeline__hub-inner" style={{ color: hubColor }}>
-          ⚡
+        <div className="pipeline__hub-inner">
+          <img className="pipeline__hub-image" src="/virtual.png" alt="" />
         </div>
       </div>
     </div>

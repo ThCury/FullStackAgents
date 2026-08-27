@@ -297,14 +297,7 @@
   width: 26px;
   height: 26px;
   flex: none;
-  border-radius: 7px;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--bg);
+  object-fit: contain;
 }
 
 .brand__name {
@@ -316,8 +309,6 @@
 .brand--lg .brand__mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  font-size: 14px;
 }
 
 .brand--lg .brand__name {
@@ -509,7 +500,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+}
+
+.pipeline__hub-image {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
 }
 
 .agent-card {

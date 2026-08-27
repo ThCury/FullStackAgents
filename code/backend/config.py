@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
@@ -54,7 +55,11 @@ AGENT_LLM_PROFILES: dict[str, AgentLLMProfile] = {
     ),
 }
 
-BACKEND_CONFIG = BackendConfig()
+BACKEND_CONFIG = BackendConfig(
+    # O hostname muda dentro da rede do Docker, mas continua localhost no uso local.
+    mongodb_uri=os.getenv("MONGODB_URI", "mongodb://localhost:27017"),
+    mongodb_database=os.getenv("MONGODB_DATABASE", "fullstack_agents"),
+)
 
 
 def model_for_agent(role: str) -> AgentLLMProfile:
